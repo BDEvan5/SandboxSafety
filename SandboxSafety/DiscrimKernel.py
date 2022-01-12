@@ -4,9 +4,8 @@ from numba import njit
 import yaml
 from PIL import Image
 from SandboxSafety.Simulator.Dynamics import update_std_state, update_complex_state, update_complex_state_const
-from SandboxSafety.KernelTests.GeneralTestTrain import load_conf
 
-from SandboxSafety.KernelGenerator import prepare_track_img, BaseKernel
+from SandboxSafety.ViabKernel import BaseKernel
 
 
 
@@ -223,36 +222,6 @@ def check_kernel_state(i, j, k, n_modes, dynamics, previous_kernel):
     return True
 
 
-
-def build_track_discrim(conf):
-    img = prepare_track_img(conf) 
-    # plt.figure(1)
-    # plt.imshow(img)
-    # plt.pause(0.0001)
-    kernel = DiscrimGenerator(img, conf)
-    kernel.calculate_kernel(100)
-    kernel.save_kernel(f"Kernel_disc_{conf.map_name}")
-    kernel.view_build(True)
-
-
-def construct_obs_kernel(conf):
-    img_size = int(conf.obs_img_size * conf.n_dx)
-    obs_size = int(conf.obs_size * conf.n_dx)
-    obs_offset = int((img_size - obs_size) / 2)
-    img = np.zeros((img_size, img_size))
-    img[obs_offset:obs_size+obs_offset, -obs_size:-1] = 1 
-    kernel = DiscrimGenerator(img, conf)
-    kernel.calculate_kernel()
-    kernel.save_kernel(f"ObsKernel_{conf.kernel_name}")
-
-def construct_kernel_sides(conf): #TODO: combine to single fcn?
-    img_size = np.array(np.array(conf.side_img_size) * conf.n_dx , dtype=int) 
-    img = np.zeros(img_size) # use res arg and set length
-    img[0, :] = 1
-    img[-1, :] = 1
-    kernel = DiscrimGenerator(img, conf)
-    kernel.calculate_kernel()
-    kernel.save_kernel(f"SideKernel_{conf.kernel_name}")
 
 
 def construct_obs_track(conf):

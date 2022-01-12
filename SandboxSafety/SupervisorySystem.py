@@ -286,8 +286,8 @@ class ForestKernel(BaseKernel):
     def __init__(self, sim_conf, plotting=False):
         super().__init__(sim_conf, plotting)
         self.kernel = None
-        self.side_kernel = np.load(f"{sim_conf.kernel_path}SideKernel_{sim_conf.kernel_name}.npy")
-        self.obs_kernel = np.load(f"{sim_conf.kernel_path}ObsKernel_{sim_conf.kernel_name}.npy")
+        self.side_kernel = np.load(f"{sim_conf.kernel_path}SideKernel_{sim_conf.kernel_mode}.npy")
+        self.obs_kernel = np.load(f"{sim_conf.kernel_path}ObsKernel_{sim_conf.kernel_mode}.npy")
         img_size = int(sim_conf.obs_img_size * sim_conf.n_dx)
         obs_size = int(sim_conf.obs_size * sim_conf.n_dx)
         self.obs_offset = int((img_size - obs_size) / 2)

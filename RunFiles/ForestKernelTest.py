@@ -5,8 +5,6 @@ from SandboxSafety.KernelGenerator import construct_obs_kernel, construct_kernel
 from SandboxSafety.NavAgents.SimplePlanners import RandomPlanner, PurePursuit 
 from SandboxSafety.SupervisorySystem import Supervisor, ForestKernel
 
-import yaml
-from argparse import Namespace
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -20,8 +18,8 @@ kernel_name = f"kernel_sap_{run_n}"
 def rando_test():
     conf = load_conf("forest_kernel")
 
-    # construct_obs_kernel(conf)
-    # construct_kernel_sides(conf)
+    construct_obs_kernel(conf)
+    construct_kernel_sides(conf)
 
     env = ForestSim(conf)
     planner = RandomPlanner()
