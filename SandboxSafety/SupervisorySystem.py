@@ -257,7 +257,7 @@ class BaseKernel:
         # plt.show()
         plt.pause(0.0001)
 
-    def check_state(self, state=[0, 0, 0]):
+    def check_state(self, state=[0, 0, 0, 0, 0]):
         i, j, k, m = self.get_indices(state)
 
         # print(f"Expected Location: {state} -> Inds: {i}, {j}, {k} -> Value: {self.kernel[i, j, k]}")
@@ -283,17 +283,21 @@ class BaseKernel:
         print(f"Filled: {filled} / {total} -> {filled/total}")
 
 
+#TODO: combine this with function in viabKernel
 def get_state_mode(v, d):
-    # q_vals = np.linspace(-max_steer, max_steer, n_modes)
     max_steer = 0.4
-    n_modes = 5
-    # velocity = 2
-    q_step = (2*max_steer) / (n_modes-1)
-    
-    q = int(round((d+max_steer) / q_step))
+    nq_steer = 5
+    nq_velocity = 3
+    vel_step = 2
+    v0 = 2 # min velocity
 
-    #TODO: add check in here for the limits. 
-    return q
+    q_step = (2*max_steer) / (nq_steer-1)
+    
+    q_vel = (v-v0) / vel_step * nq_steer 
+    q_d = round((d+max_steer) / q_step)
+
+    return int(q_d+q_vel)
+
 
 class ForestKernel(BaseKernel):
     def __init__(self, sim_conf, plotting=False):

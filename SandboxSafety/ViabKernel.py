@@ -43,7 +43,7 @@ class BaseKernel:
         self.n_phi = sim_conf.n_phi
         self.phi_range = sim_conf.phi_range
         self.half_phi = self.phi_range / (2*self.n_phi)
-        self.n_modes = sim_conf.n_modes
+        self.n_modes = sim_conf.nq_steer * sim_conf.nq_velocity
         self.sim_conf = sim_conf
         self.max_steer = sim_conf.max_steer 
         self.L = sim_conf.l_f + sim_conf.l_r
@@ -54,11 +54,10 @@ class BaseKernel:
         self.ys = np.linspace(0, self.n_y/self.n_dx, self.n_y)
         self.phis = np.linspace(-self.phi_range/2, self.phi_range/2, self.n_phi)
         
-        n_modes = sim_conf.nq_steer * sim_conf.nq_velocity
-        self.qs = np.arange(0, n_modes)
+        self.qs = np.arange(0, self.n_modes)
 
         self.o_map = np.copy(self.track_img)    
-        # self.fig, self.axs = plt.subplots(2, 2)
+        self.fig, self.axs = plt.subplots(2, 2)
 
     def save_kernel(self, name):
         np.save(f"{self.sim_conf.kernel_path}{name}.npy", self.kernel)
@@ -137,18 +136,20 @@ class ViabilityGenerator(BaseKernel):
         self.axs[0, 1].cla()
         self.axs[1, 1].cla()
 
-        half_phi = int(len(self.phis)/2)
-        quarter_phi = int(len(self.phis)/4)
+        phi_ind = int(len(self.phis)/2)
+        # quarter_phi = int(len(self.phis)/4)
+        # phi_ind = 
 
-        self.axs[0, 0].imshow(self.kernel[:, :, 0].T + self.o_map.T, origin='lower')
-        self.axs[0, 0].set_title(f"Kernel phi: {self.phis[0]}")
+        self.axs[0, 0].imshow(self.kernel[:, :, phi_ind, 2].T + self.o_map.T, origin='lower')
+        self.axs[0, 0].set_title(f"Kernel speed: {2}")
         # axs[0, 0].clear()
-        self.axs[1, 0].imshow(self.kernel[:, :, half_phi].T + self.o_map.T, origin='lower')
-        self.axs[1, 0].set_title(f"Kernel phi: {self.phis[half_phi]}")
-        self.axs[0, 1].imshow(self.kernel[:, :, -quarter_phi].T + self.o_map.T, origin='lower')
-        self.axs[0, 1].set_title(f"Kernel phi: {self.phis[-quarter_phi]}")
-        self.axs[1, 1].imshow(self.kernel[:, :, quarter_phi].T + self.o_map.T, origin='lower')
-        self.axs[1, 1].set_title(f"Kernel phi: {self.phis[quarter_phi]}")
+        self.axs[1, 0].imshow(self.kernel[:, :, phi_ind, 7].T + self.o_map.T, origin='lower')
+        self.axs[1, 0].set_title(f"Kernel speed: {4}")
+        self.axs[0, 1].imshow(self.kernel[:, :, phi_ind, 12].T + self.o_map.T, origin='lower')
+        self.axs[0, 1].set_title(f"Kernel speed: {6}")
+
+        self.axs[1, 1].imshow(self.kernel[:, :, 0, 2].T + self.o_map.T, origin='lower')
+        self.axs[1, 1].set_title(f"Kernel phi: {2}")
 
         # plt.title(f"Building Kernel")
 
@@ -198,7 +199,10 @@ class ViabilityGenerator(BaseKernel):
             self.previous_kernel = np.copy(self.kernel)
             self.kernel = viability_loop(self.kernel, self.dynamics)
 
-            self.view_kernel(0, False)
+            # self.view_kernel(0, False)
+            self.view_speed_build(False)
+
+        self.view_speed_build(True)
         return self.get_filled_kernel()
 
 # @njit(cache=True)
