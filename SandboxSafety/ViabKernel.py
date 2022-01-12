@@ -7,10 +7,15 @@ from SandboxSafety.Simulator.Dynamics import update_std_state, update_complex_st
 
 def get_q_action(q):
     max_steer = 0.4
-    n_modes = 5
-    velocity = 2
-    q_step = (2*max_steer) / (n_modes-1)
-    steering = q_step * q - max_steer
+    nq_steer = 5
+    nq_velocity = 3
+    vel_step = 2
+    v0 = 2 # min velocity
+
+    velocity = (q // nq_steer) * vel_step + v0
+
+    q_step = (2*max_steer) / (nq_steer-1)
+    steering = q_step * (q%nq_steer) - max_steer
 
     return np.array([steering, velocity])
 
@@ -21,7 +26,8 @@ def get_state_mode(v, d):
     # velocity = 2
     q_step = (2*max_steer) / (n_modes-1)
     
-    q = round((d+max_steer) / q_step)
+    q = int(round((d+max_steer) / q_step))
+
     return q
 
 
@@ -45,7 +51,8 @@ class BaseKernel:
         self.ys = np.linspace(0, self.n_y/self.n_dx, self.n_y)
         self.phis = np.linspace(-self.phi_range/2, self.phi_range/2, self.n_phi)
         
-        self.qs = np.arange(0, self.n_modes)
+        n_modes = sim_conf.nq_steer * sim_conf.nq_velocity
+        self.qs = np.arange(0, n_modes)
 
         self.o_map = np.copy(self.track_img)    
         # self.fig, self.axs = plt.subplots(2, 2)
@@ -251,11 +258,14 @@ def check_viable_state(i, j, k, q, dynamics, previous_kernel):
 
 
 
+def test_q_fcns():
+    for i in range(15):
+        print(f"{i} -> {get_q_action(i)}")
 
 
 
-
-# if __name__ == "__main__":
+if __name__ == "__main__":
+    test_q_fcns()
 #     conf = load_conf("track_kernel")
 #     build_track_kernel(conf)
 
