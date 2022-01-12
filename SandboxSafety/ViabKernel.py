@@ -20,15 +20,18 @@ def get_q_action(q):
     return np.array([steering, velocity])
 
 def get_state_mode(v, d):
-    # q_vals = np.linspace(-max_steer, max_steer, n_modes)
     max_steer = 0.4
-    n_modes = 5
-    # velocity = 2
-    q_step = (2*max_steer) / (n_modes-1)
-    
-    q = int(round((d+max_steer) / q_step))
+    nq_steer = 5
+    nq_velocity = 3
+    vel_step = 2
+    v0 = 2 # min velocity
 
-    return q
+    q_step = (2*max_steer) / (nq_steer-1)
+    
+    q_vel = (v-v0) / vel_step * nq_steer 
+    q_d = round((d+max_steer) / q_step)
+
+    return int(q_d+q_vel)
 
 
 class BaseKernel:
@@ -262,7 +265,11 @@ def test_q_fcns():
     for i in range(15):
         print(f"{i} -> {get_q_action(i)}")
 
-
+    for i in range(3):
+        for j in range(5):
+            d = j * 0.2 - 0.4
+            v =  i * 2 + 2
+            print(f"d:{d}, v:{v} -> {get_state_mode(v, d)}")
 
 if __name__ == "__main__":
     test_q_fcns()
