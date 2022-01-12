@@ -5,6 +5,16 @@ import yaml
 from PIL import Image
 from SandboxSafety.Simulator.Dynamics import update_std_state, update_complex_state, update_complex_state_const
 
+def get_q_action(q):
+    max_steer = 0.4
+    n_modes = 5
+    velocity = 2
+    # q_vals = np.linspace(-max_steer, max_steer, n_modes)
+    q_step = (2*max_steer) / (n_modes-1)
+    steering = q_step * q - max_steer
+
+    return np.array([steering, velocity])
+
 class BaseKernel:
     def __init__(self, track_img, sim_conf):
         self.velocity = 2 #TODO: make this a config param
@@ -25,10 +35,10 @@ class BaseKernel:
         self.ys = np.linspace(0, self.n_y/self.n_dx, self.n_y)
         self.phis = np.linspace(-self.phi_range/2, self.phi_range/2, self.n_phi)
         
-        self.qs = np.linspace(-self.max_steer, self.max_steer, self.n_modes)
+        self.qs = np.arange(0, self.n_modes)
 
         self.o_map = np.copy(self.track_img)    
-        self.fig, self.axs = plt.subplots(2, 2)
+        # self.fig, self.axs = plt.subplots(2, 2)
 
     def save_kernel(self, name):
         np.save(f"{self.sim_conf.kernel_path}{name}.npy", self.kernel)
@@ -178,9 +188,10 @@ def build_viability_dynamics(phis, qs, velocity, time, conf):
 
     dynamics = np.zeros((len(phis), len(qs), 3), dtype=np.int)
     for i, p in enumerate(phis):
-        for j, m in enumerate(qs):
+        for j, q in enumerate(qs):
                 state = np.array([0, 0, p, velocity, 0])
-                action = np.array([m, velocity])
+                action = get_q_action(q)
+                # action = np.array([m, velocity])
                 new_state = update_complex_state(state, action, time)
                 dx, dy, phi = new_state[0], new_state[1], new_state[2]
 

@@ -26,7 +26,7 @@ def rando_test():
     kernel = ForestKernel(conf)
     safety_planner = Supervisor(planner, kernel, conf)
 
-    test_kernel_vehicle(env, safety_planner, True, 20, add_obs=True, wait=False)
+    test_kernel_vehicle(env, safety_planner, True, 5, add_obs=True, wait=False)
     # test_kernel_vehicle(env, safety_planner, False, 100, wait=False)
 
 def pp_test():
@@ -41,8 +41,27 @@ def pp_test():
     safety_planner = Supervisor(planner, kernel, conf)
 
     # run_test_loop(env, safety_planner, True, 10)
-    test_kernel_vehicle(env, safety_planner, True, 10, add_obs=True, wait=False)
+    test_kernel_vehicle(env, safety_planner, True, 5, add_obs=True, wait=False)
+
+def test_kernels():
+    conf = load_conf("forest_kernel")
+
+    construct_obs_kernel(conf)
+    construct_kernel_sides(conf)
+
+    env = ForestSim(conf)
+    pp_planner = PurePursuit(conf)
+    rando_planner = RandomPlanner()
+    kernel = ForestKernel(conf)
+
+    safety_planner = Supervisor(rando_planner, kernel, conf)
+    test_kernel_vehicle(env, safety_planner, True, 5, add_obs=True, wait=False)
+
+    safety_planner = Supervisor(pp_planner, kernel, conf)
+    test_kernel_vehicle(env, safety_planner, True, 5, add_obs=True, wait=False)
 
 if __name__ == "__main__":
     # rando_test()
-    pp_test()
+    # pp_test()
+
+    test_kernels()
