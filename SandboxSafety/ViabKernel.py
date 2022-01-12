@@ -73,13 +73,12 @@ class Modes:
 class BaseKernel:
     def __init__(self, track_img, sim_conf):
         self.track_img = track_img
+        self.sim_conf = sim_conf
         self.n_dx = int(sim_conf.n_dx)
         self.t_step = sim_conf.kernel_time_step
         self.n_phi = sim_conf.n_phi
         self.phi_range = sim_conf.phi_range
         self.half_phi = self.phi_range / (2*self.n_phi)
-        self.n_modes = sim_conf.nq_steer * sim_conf.nq_velocity
-        self.sim_conf = sim_conf
         self.max_steer = sim_conf.max_steer 
         self.L = sim_conf.l_f + sim_conf.l_r
 
@@ -90,6 +89,7 @@ class BaseKernel:
         self.phis = np.linspace(-self.phi_range/2, self.phi_range/2, self.n_phi)
         
         self.m = Modes(sim_conf)
+        self.n_modes = self.m.n_modes
 
         self.o_map = np.copy(self.track_img)    
         self.fig, self.axs = plt.subplots(2, 2)
@@ -176,15 +176,15 @@ class ViabilityGenerator(BaseKernel):
         # quarter_phi = int(len(self.phis)/4)
         # phi_ind = 
 
-        self.axs[0, 0].imshow(self.kernel[:, :, phi_ind, 2].T + self.o_map.T, origin='lower')
+        self.axs[0, 0].imshow(self.kernel[:, :, phi_ind, 4].T + self.o_map.T, origin='lower')
         self.axs[0, 0].set_title(f"Kernel speed: {2}")
         # axs[0, 0].clear()
-        self.axs[1, 0].imshow(self.kernel[:, :, phi_ind, 7].T + self.o_map.T, origin='lower')
+        self.axs[1, 0].imshow(self.kernel[:, :, phi_ind, 11].T + self.o_map.T, origin='lower')
         self.axs[1, 0].set_title(f"Kernel speed: {4}")
-        self.axs[0, 1].imshow(self.kernel[:, :, phi_ind, 12].T + self.o_map.T, origin='lower')
+        self.axs[0, 1].imshow(self.kernel[:, :, phi_ind, 15].T + self.o_map.T, origin='lower')
         self.axs[0, 1].set_title(f"Kernel speed: {6}")
 
-        self.axs[1, 1].imshow(self.kernel[:, :, 0, 2].T + self.o_map.T, origin='lower')
+        self.axs[1, 1].imshow(self.kernel[:, :, phi_ind, 18].T + self.o_map.T, origin='lower')
         self.axs[1, 1].set_title(f"Kernel phi: {2}")
 
         # plt.title(f"Building Kernel")
@@ -233,7 +233,7 @@ class ViabilityGenerator(BaseKernel):
                 print("Kernel has not changed: convergence has been reached")
                 break
             self.previous_kernel = np.copy(self.kernel)
-            self.kernel = viability_loop(self.kernel, self.dynamics, self.m)
+            self.kernel = viability_loop(self.kernel, self.dynamics)
 
             # self.view_kernel(0, False)
             self.view_speed_build(False)
@@ -286,14 +286,11 @@ def viability_loop(kernel, dynamics):
 @njit(cache=True)
 def check_viable_state(i, j, k, q, dynamics, previous_kernel):
     l_xs, l_ys, l_phis, n_modes = previous_kernel.shape
-    # q value will be used to apply dynamic limits on the search
-    # for l in range(n_modes):
-    for l in get_search_list(q):
+    for l in range(n_modes):
         di, dj, new_k, new_q = dynamics[k, q, l, :]
         new_i = min(max(0, i + di), l_xs-1)  
         new_j = min(max(0, j + dj), l_ys-1)
 
-        # use the new q value to check if that state is ok.
         if not previous_kernel[new_i, new_j, new_k, new_q]:
             return False
     return True

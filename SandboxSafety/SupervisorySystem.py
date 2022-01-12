@@ -80,6 +80,9 @@ class Supervisor:
         self.plan_act = self.plan
         self.name = planner.name
 
+        self.m = Modes(conf)
+
+
 
     def plan(self, obs):
         init_action = self.planner.plan_act(obs)
@@ -106,16 +109,31 @@ class Supervisor:
         return action
 
     def generate_dw(self):
-        n_segments = 5
-        dw = np.ones((5, 2))
-        dw[:, 0] = np.linspace(-self.d_max, self.d_max, n_segments)
-        dw[:, 1] *= self.v
-        # dw = np.vstack((dw, dw, dw))
-        # dw[0:5, 1] *= 1
-        # dw[5:10, 1] *= 2
-        # dw[10:, 1] *= 3
-        return dw
+        return self.m.qs
+        # #TODO: get this from the mode object.
+        # n_segments = 5
+        # dw = np.ones((5, 2))
+        # dw[:, 0] = np.linspace(-self.d_max, self.d_max, n_segments)
+        # dw[:, 1] *= self.v
+        # # dw = np.vstack((dw, dw, dw))
+        # # dw[0:5, 1] *= 1
+        # # dw[5:10, 1] *= 2
+        # # dw[10:, 1] *= 3
+        # return dw
 
+    def check_init_action(self, state, init_action):
+        d, v = init_action
+        b = 0.523
+        g = 9.81
+        l_d = 0.329
+        friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1
+        if friction_v < v:
+            return False, state
+
+        next_state = update_complex_state(state, init_action, self.time_step)
+        safe = self.kernel.check_state(next_state)
+        
+        return safe, next_state
 
 class LearningSupervisor(Supervisor):
     def __init__(self, planner, kernel, conf):
@@ -205,11 +223,11 @@ class LearningSupervisor(Supervisor):
 
 #TODO jit all of this.
 
-def check_init_action(state, u0, kernel, time_step=0.1):
-    next_state = update_complex_state(state, u0, time_step)
-    safe = kernel.check_state(next_state)
+# def check_init_action(state, u0, kernel, time_step=0.1):
+#     next_state = update_complex_state(state, u0, time_step)
+#     safe = kernel.check_state(next_state)
     
-    return safe, next_state
+#     return safe, next_state
 
 def simulate_and_classify(state, dw, kernel, time_step=0.1):
     valid_ds = np.ones(len(dw))
@@ -239,12 +257,87 @@ def modify_action(valid_window, dw):
         if valid_window[n_d]:
             return dw[n_d]
 
+
+
+
+class Modes:
+    def __init__(self, sim_conf):
+        self.nq_steer = sim_conf.nq_steer
+        self.nq_velocity = sim_conf.nq_velocity
+        self.max_steer = sim_conf.max_steer
+        self.max_velocity = sim_conf.max_v
+        self.min_velocity = sim_conf.min_v
+
+        self.vs = np.linspace(self.min_velocity, self.max_velocity, self.nq_velocity)
+        self.ds = np.linspace(-self.max_steer, self.max_steer, self.nq_steer)
+
+        self.qs = None
+        self.n_modes = None
+        self.nv_modes = None
+        self.v_mode_list = None
+
+        self.init_modes()
+
+    def init_modes(self):
+        b = 0.523
+        g = 9.81
+        l_d = 0.329
+
+        mode_list = []
+        v_mode_list = []
+        nv_modes = [0]
+        for i, v in enumerate(self.vs):
+            v_mode_list.append([])
+            for s in self.ds:
+                if abs(s) < 0.06:
+                    mode_list.append([s, v])
+                    v_mode_list[i].append(s)
+                    continue
+
+                friction_v = np.sqrt(b*g*l_d/np.tan(abs(s))) *1.1 # nice for the maths, but a bit wrong for actual friction
+                if friction_v > v:
+                    mode_list.append([s, v])
+                    v_mode_list[i].append(s)
+
+            nv_modes.append(len(v_mode_list[i])+nv_modes[-1])
+
+        self.qs = np.array(mode_list)
+        self.n_modes = len(mode_list)
+        self.nv_modes = np.array(nv_modes)
+        self.v_mode_list = np.array(v_mode_list)
+
+        # print(self.qs)
+        # print(v_mode_list)
+        # print(f"Number of modes: {self.n_modes}")
+        # print(f"Number of v modes: {nv_modes}")
+
+    def check_mode_lims(self, v, d):
+        b = 0.523
+        g = 9.81
+        l_d = 0.329
+        friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1
+        if friction_v > v:
+            return True
+        return False
+
+    def get_mode_id(self, v, d):
+        # assume that a valid input is given that is within the range.
+        v_ind = np.argmin(np.abs(self.vs - v))
+        d_ind = np.argmin(np.abs(self.v_mode_list[v_ind] - d))
+        
+        return_mode = self.nv_modes[v_ind] + d_ind
+        
+        return return_mode
+
+    def __len__(self): return self.n_modes
+
     
 
 class BaseKernel:
     def __init__(self, sim_conf, plotting):
         self.resolution = sim_conf.n_dx
         self.plotting = plotting
+        self.m = Modes(sim_conf)
 
     def view_kernel(self, theta):
         phi_range = np.pi
@@ -258,6 +351,14 @@ class BaseKernel:
         plt.pause(0.0001)
 
     def check_state(self, state=[0, 0, 0, 0, 0]):
+        # # check friction first_t
+        # b = 0.523
+        # g = 9.81
+        # l_d = 0.329
+        # friction_v = np.sqrt(b*g*l_d/np.tan(abs(state[4]))) *1.1
+        # if state[3] > friction_v:
+        #     return False
+
         i, j, k, m = self.get_indices(state)
 
         # print(f"Expected Location: {state} -> Inds: {i}, {j}, {k} -> Value: {self.kernel[i, j, k]}")
@@ -283,22 +384,6 @@ class BaseKernel:
         print(f"Filled: {filled} / {total} -> {filled/total}")
 
 
-#TODO: combine this with function in viabKernel
-def get_state_mode(v, d):
-    max_steer = 0.4
-    nq_steer = 5
-    nq_velocity = 3
-    vel_step = 2
-    v0 = 2 # min velocity
-
-    q_step = (2*max_steer) / (nq_steer-1)
-    
-    q_vel = (v-v0) / vel_step * nq_steer 
-    q_d = round((d+max_steer) / q_step)
-
-    return int(q_d+q_vel)
-
-
 class ForestKernel(BaseKernel):
     def __init__(self, sim_conf, plotting=False):
         super().__init__(sim_conf, plotting)
@@ -318,7 +403,7 @@ class ForestKernel(BaseKernel):
         y_ind = min(max(0, int(round((state[1])*self.resolution))), self.kernel.shape[1]-1)
         theta_ind = int(round((state[2] + phi_range/2) / phi_range * (self.kernel.shape[2]-1)))
         theta_ind = min(max(0, theta_ind), self.kernel.shape[2]-1)
-        mode = get_state_mode(state[3], state[4])
+        mode = self.m.get_mode_id(state[3], state[4])
 
         return x_ind, y_ind, theta_ind, mode
 
