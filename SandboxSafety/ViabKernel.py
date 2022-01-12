@@ -9,11 +9,21 @@ def get_q_action(q):
     max_steer = 0.4
     n_modes = 5
     velocity = 2
-    # q_vals = np.linspace(-max_steer, max_steer, n_modes)
     q_step = (2*max_steer) / (n_modes-1)
     steering = q_step * q - max_steer
 
     return np.array([steering, velocity])
+
+def get_state_mode(v, d):
+    # q_vals = np.linspace(-max_steer, max_steer, n_modes)
+    max_steer = 0.4
+    n_modes = 5
+    # velocity = 2
+    q_step = (2*max_steer) / (n_modes-1)
+    
+    q = round((d+max_steer) / q_step)
+    return q
+
 
 class BaseKernel:
     def __init__(self, track_img, sim_conf):
@@ -75,7 +85,7 @@ class ViabilityGenerator(BaseKernel):
         plt.arrow(0, 0, np.sin(phi)*arrow_len, np.cos(phi)*arrow_len, color='r', width=0.001)
         for m in range(self.n_modes):
             i, j = int(self.n_x/2), 0 
-            di, dj, new_k = self.dynamics[phi_ind, m]
+            di, dj, new_k, new_q = self.dynamics[phi_ind, m]
 
 
             plt.arrow(i, j, di, dj, color='b', width=0.001)
@@ -186,14 +196,15 @@ def build_viability_dynamics(phis, qs, velocity, time, conf):
     resolution = conf.n_dx
     phi_range = conf.phi_range
 
-    dynamics = np.zeros((len(phis), len(qs), 3), dtype=np.int)
+    dynamics = np.zeros((len(phis), len(qs), 4), dtype=np.int)
     for i, p in enumerate(phis):
         for j, q in enumerate(qs):
                 state = np.array([0, 0, p, velocity, 0])
                 action = get_q_action(q)
                 # action = np.array([m, velocity])
                 new_state = update_complex_state(state, action, time)
-                dx, dy, phi = new_state[0], new_state[1], new_state[2]
+                dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
+                new_q = get_state_mode(vel, steer)
 
                 while phi > np.pi:
                     phi = phi - 2*np.pi
@@ -204,6 +215,7 @@ def build_viability_dynamics(phis, qs, velocity, time, conf):
                 
                 dynamics[i, j, 0] = int(round(dx * resolution))                  
                 dynamics[i, j, 1] = int(round(dy * resolution))                  
+                dynamics[i, j, 3] = int(new_q)                  
                 
 
     return dynamics
@@ -226,7 +238,7 @@ def check_viable_state(i, j, k, dynamics, previous_kernel):
     l_xs, l_ys, l_phis = previous_kernel.shape
     n_modes = dynamics.shape[1]
     for l in range(n_modes):
-        di, dj, new_k = dynamics[k, l, :]
+        di, dj, new_k, new_q = dynamics[k, l, :]
         new_i = min(max(0, i + di), l_xs-1)  
         new_j = min(max(0, j + dj), l_ys-1)
 
