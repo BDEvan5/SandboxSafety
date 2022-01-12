@@ -1,2 +1,12 @@
 
 SandboxSafety.egg-info/
+
+RunFiles/__pycache__/
+
+SandboxSafety/__pycache__/
+
+SandboxSafety/NavAgents/__pycache__/
+
+SandboxSafety/NavUtils/__pycache__/
+
+SandboxSafety/Simulator/__pycache__/

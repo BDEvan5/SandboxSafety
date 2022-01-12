@@ -1,0 +1,29 @@
+max_v: 7
+max_a: 8.5
+max_steer: 0.4
+max_d_dot: 3.2
+
+l_r: 0.171
+l_f: 0.158
+
+
+time_step: 0.1
+update_steps: 1
+
+# map_name: "torino"
+# map_name: "berlin"
+map_name: "porto"
+# map_name: "race_track"
+
+kernel_path: "PaperData/Kernels/"
+# kernel_mode: "disc"
+kernel_mode: "viab"
+n_phi: 41
+n_modes: 5
+phi_range: 6.28
+discrim_block: 1
+discrim_phi: 0
+kernel_time_step: 0.1
+lookahead_time_step: 0.2
+n_dx: 80
+
