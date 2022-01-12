@@ -44,5 +44,5 @@ def pp_test():
     test_kernel_vehicle(env, safety_planner, True, 10, add_obs=True, wait=False)
 
 if __name__ == "__main__":
-    rando_test()
-    # pp_test()
+    # rando_test()
+    pp_test()

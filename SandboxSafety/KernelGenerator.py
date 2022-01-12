@@ -18,6 +18,8 @@ def construct_obs_kernel(conf):
         kernel = ViabilityGenerator(img, conf)
     elif conf.kernel_mode == 'disc':
         kernel = DiscrimGenerator(img, conf)
+    else:
+        raise ValueError(f"Unknown kernel mode: {conf.kernel_mode}")
 
     kernel.calculate_kernel()
     kernel.save_kernel(f"ObsKernel_{conf.kernel_mode}")

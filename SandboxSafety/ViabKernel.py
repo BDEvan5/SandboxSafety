@@ -65,7 +65,7 @@ class ViabilityGenerator(BaseKernel):
         plt.arrow(0, 0, np.sin(phi)*arrow_len, np.cos(phi)*arrow_len, color='r', width=0.001)
         for m in range(self.n_modes):
             i, j = int(self.n_x/2), 0 
-            di, dj, new_k = self.dynamics[phi_ind, m, -1]
+            di, dj, new_k = self.dynamics[phi_ind, m]
 
 
             plt.arrow(i, j, di, dj, color='b', width=0.001)
@@ -75,6 +75,33 @@ class ViabilityGenerator(BaseKernel):
             plt.show()
     
     def view_build(self, show=True):
+        self.axs[0, 0].cla()
+        self.axs[1, 0].cla()
+        self.axs[0, 1].cla()
+        self.axs[1, 1].cla()
+
+        half_phi = int(len(self.phis)/2)
+        quarter_phi = int(len(self.phis)/4)
+
+        self.axs[0, 0].imshow(self.kernel[:, :, 0].T + self.o_map.T, origin='lower')
+        self.axs[0, 0].set_title(f"Kernel phi: {self.phis[0]}")
+        # axs[0, 0].clear()
+        self.axs[1, 0].imshow(self.kernel[:, :, half_phi].T + self.o_map.T, origin='lower')
+        self.axs[1, 0].set_title(f"Kernel phi: {self.phis[half_phi]}")
+        self.axs[0, 1].imshow(self.kernel[:, :, -quarter_phi].T + self.o_map.T, origin='lower')
+        self.axs[0, 1].set_title(f"Kernel phi: {self.phis[-quarter_phi]}")
+        self.axs[1, 1].imshow(self.kernel[:, :, quarter_phi].T + self.o_map.T, origin='lower')
+        self.axs[1, 1].set_title(f"Kernel phi: {self.phis[quarter_phi]}")
+
+        # plt.title(f"Building Kernel")
+
+        plt.pause(0.0001)
+        plt.pause(1)
+
+        if show:
+            plt.show()
+     
+    def view_speed_build(self, show=True):
         self.axs[0, 0].cla()
         self.axs[1, 0].cla()
         self.axs[0, 1].cla()
@@ -141,7 +168,7 @@ class ViabilityGenerator(BaseKernel):
             self.previous_kernel = np.copy(self.kernel)
             self.kernel = viability_loop(self.kernel, self.dynamics)
 
-            # self.view_build(False)
+            self.view_kernel(0, False)
         return self.get_filled_kernel()
 
 # @njit(cache=True)
