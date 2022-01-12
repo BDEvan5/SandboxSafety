@@ -23,6 +23,8 @@ class Modes:
         self.nv_modes = None
         self.v_mode_list = None
 
+        self.init_modes()
+
     def init_modes(self):
         b = 0.523
         g = 9.81
@@ -65,28 +67,11 @@ class Modes:
         
         return return_mode
 
-
-
-
-@njit(cache=True)
-def get_state_mode(v, d):
-    max_steer = 0.4
-    nq_steer = 5
-    # nq_velocity = 3
-    vel_step = 1
-    v0 = 2 # min velocity
-
-    q_step = (2*max_steer) / (nq_steer-1)
-    
-    q_vel = round((v-v0) / vel_step) * nq_steer  # keep and eye on this round, it might not be ok. I might have to use ceiling.
-    q_d = round((d+max_steer) / q_step)
-
-    return int(q_d+q_vel)
+    def __len__(self): return self.n_modes
 
 
 class BaseKernel:
     def __init__(self, track_img, sim_conf):
-        self.velocity = 2 #TODO: make this a config param
         self.track_img = track_img
         self.n_dx = int(sim_conf.n_dx)
         self.t_step = sim_conf.kernel_time_step
@@ -104,7 +89,7 @@ class BaseKernel:
         self.ys = np.linspace(0, self.n_y/self.n_dx, self.n_y)
         self.phis = np.linspace(-self.phi_range/2, self.phi_range/2, self.n_phi)
         
-        self.qs = np.arange(0, self.n_modes)
+        self.m = Modes(sim_conf)
 
         self.o_map = np.copy(self.track_img)    
         self.fig, self.axs = plt.subplots(2, 2)
@@ -129,7 +114,7 @@ class ViabilityGenerator(BaseKernel):
         
         self.kernel[:, :, :, :] = self.track_img[:, :, None, None] * np.ones((self.n_x, self.n_y, self.n_phi, self.n_modes))
 
-        self.dynamics = build_viability_dynamics(self.phis, self.qs, self.velocity, self.t_step, self.sim_conf)
+        self.dynamics = build_viability_dynamics(self.phis, self.m, self.t_step, self.sim_conf)
 
     def view_kernel(self, phi, show=True, fig_n=1):
         phi_ind = np.argmin(np.abs(self.phis - phi))
@@ -248,7 +233,7 @@ class ViabilityGenerator(BaseKernel):
                 print("Kernel has not changed: convergence has been reached")
                 break
             self.previous_kernel = np.copy(self.kernel)
-            self.kernel = viability_loop(self.kernel, self.dynamics)
+            self.kernel = viability_loop(self.kernel, self.dynamics, self.m)
 
             # self.view_kernel(0, False)
             self.view_speed_build(False)
@@ -257,20 +242,18 @@ class ViabilityGenerator(BaseKernel):
         return self.get_filled_kernel()
 
 # @njit(cache=True)
-def build_viability_dynamics(phis, qs, velocity, time, conf):
+def build_viability_dynamics(phis, m, time, conf):
     resolution = conf.n_dx
     phi_range = conf.phi_range
 
-    dynamics = np.zeros((len(phis), len(qs), len(qs), 4), dtype=np.int)
+    dynamics = np.zeros((len(phis), len(m), len(m), 4), dtype=np.int)
     for i, p in enumerate(phis):
-        for j, q_state in enumerate(qs): # searches through old q's
-            for k, q_act in enumerate(qs): # searches through actions
-                steer, velocity = get_q_action(q_state)
-                state = np.array([0, 0, p, velocity, steer])
-                action = get_q_action(q_act)
+        for j, state_mode in enumerate(m.qs): # searches through old q's
+            state = np.array([0, 0, p, state_mode[1], state_mode[0]])
+            for k, action in enumerate(m.qs): # searches through actions
                 new_state = update_complex_state(state, action, time)
                 dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
-                new_q = get_state_mode(vel, steer)
+                new_q = m.get_mode_id(vel, steer)
 
                 while phi > np.pi:
                     phi = phi - 2*np.pi
@@ -317,19 +300,6 @@ def check_viable_state(i, j, k, q, dynamics, previous_kernel):
 
 
 
-def test_q_fcns():
-    # for i in range(15):
-    #     print(f"{i} -> {get_q_action(i)}")
-
-    # for i in range(3):
-    #     for j in range(5):
-    #         d = j * 0.2 - 0.4
-    #         v =  i * 2 + 2
-    #         print(f"d:{d}, v:{v} -> {get_state_mode(v, d)}")
-
-
-    for i in range(25):
-        print(f"{i} -> {get_search_list(i)}")
 
 from argparse import Namespace
 def load_conf(fname):
