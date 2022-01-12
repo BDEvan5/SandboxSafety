@@ -39,7 +39,7 @@ side_img_size: [2, 1]
 n_phi: 41
 # n_modes: 5
 nq_steer: 5
-nq_velocity: 3
+nq_velocity: 5
 phi_range: 3.141
 dynamics_pts: 5
 discrim_block: 1 

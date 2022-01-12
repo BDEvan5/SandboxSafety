@@ -8,8 +8,8 @@ from SandboxSafety.Simulator.Dynamics import update_std_state, update_complex_st
 def get_q_action(q):
     max_steer = 0.4
     nq_steer = 5
-    nq_velocity = 3
-    vel_step = 2
+    # nq_velocity = 3
+    vel_step = 1
     v0 = 2 # min velocity
 
     velocity = (q // nq_steer) * vel_step + v0
@@ -22,13 +22,13 @@ def get_q_action(q):
 def get_state_mode(v, d):
     max_steer = 0.4
     nq_steer = 5
-    nq_velocity = 3
-    vel_step = 2
+    # nq_velocity = 3
+    vel_step = 1
     v0 = 2 # min velocity
 
     q_step = (2*max_steer) / (nq_steer-1)
     
-    q_vel = (v-v0) / vel_step * nq_steer 
+    q_vel = round((v-v0) / vel_step) * nq_steer  # keep and eye on this round, it might not be ok. I might have to use ceiling.
     q_d = round((d+max_steer) / q_step)
 
     return int(q_d+q_vel)
@@ -210,12 +210,13 @@ def build_viability_dynamics(phis, qs, velocity, time, conf):
     resolution = conf.n_dx
     phi_range = conf.phi_range
 
-    dynamics = np.zeros((len(phis), len(qs), 4), dtype=np.int)
+    dynamics = np.zeros((len(phis), len(qs), len(qs), 4), dtype=np.int)
     for i, p in enumerate(phis):
-        for j, q in enumerate(qs):
-                state = np.array([0, 0, p, velocity, 0])
-                action = get_q_action(q)
-                # action = np.array([m, velocity])
+        for j, q_state in enumerate(qs): # searches through old q's
+            for k, q_act in enumerate(qs): # searches through actions
+                steer, velocity = get_q_action(q_state)
+                state = np.array([0, 0, p, velocity, steer])
+                action = get_q_action(q_act)
                 new_state = update_complex_state(state, action, time)
                 dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
                 new_q = get_state_mode(vel, steer)
@@ -225,11 +226,11 @@ def build_viability_dynamics(phis, qs, velocity, time, conf):
                 while phi < -np.pi:
                     phi = phi + 2*np.pi
                 new_k = int(round((phi + phi_range/2) / phi_range * (len(phis)-1)))
-                dynamics[i, j, 2] = min(max(0, new_k), len(phis)-1)
+                dynamics[i, j, k, 2] = min(max(0, new_k), len(phis)-1)
                 
-                dynamics[i, j, 0] = int(round(dx * resolution))                  
-                dynamics[i, j, 1] = int(round(dy * resolution))                  
-                dynamics[i, j, 3] = int(new_q)                  
+                dynamics[i, j, k, 0] = int(round(dx * resolution))                  
+                dynamics[i, j, k, 1] = int(round(dy * resolution))                  
+                dynamics[i, j, k, 3] = int(new_q)                  
                 
 
     return dynamics
