@@ -65,10 +65,10 @@ class ViabilityGenerator(BaseKernel):
     def __init__(self, track_img, sim_conf):
         super().__init__(track_img, sim_conf)
         
-        self.kernel = np.zeros((self.n_x, self.n_y, self.n_phi))
-        self.previous_kernel = np.zeros((self.n_x, self.n_y, self.n_phi))
+        self.kernel = np.zeros((self.n_x, self.n_y, self.n_phi, self.n_modes))
+        self.previous_kernel = np.zeros((self.n_x, self.n_y, self.n_phi, self.n_modes))
         
-        self.kernel[:, :, :] = self.track_img[:, :, None] * np.ones((self.n_x, self.n_y, self.n_phi))
+        self.kernel[:, :, :, :] = self.track_img[:, :, None, None] * np.ones((self.n_x, self.n_y, self.n_phi, self.n_modes))
 
         self.dynamics = build_viability_dynamics(self.phis, self.qs, self.velocity, self.t_step, self.sim_conf)
 
@@ -78,7 +78,7 @@ class ViabilityGenerator(BaseKernel):
         plt.clf()
         plt.title(f"Kernel phi: {phi} (ind: {phi_ind})")
         # mode = int((self.n_modes-1)/2)
-        img = self.kernel[:, :, phi_ind].T + self.o_map.T
+        img = self.kernel[:, :, phi_ind, 0].T + self.o_map.T
         plt.imshow(img, origin='lower')
 
         arrow_len = 0.15
@@ -223,26 +223,29 @@ def build_viability_dynamics(phis, qs, velocity, time, conf):
 @njit(cache=True)
 def viability_loop(kernel, dynamics):
     previous_kernel = np.copy(kernel)
-    l_xs, l_ys, l_phis = kernel.shape
+    l_xs, l_ys, l_phis, l_qs = kernel.shape
     for i in range(l_xs):
         for j in range(l_ys):
             for k in range(l_phis):
-                if kernel[i, j, k] == 1:
-                    continue 
-                kernel[i, j, k] = check_viable_state(i, j, k, dynamics, previous_kernel)
+                for q in range(l_qs):
+                    if kernel[i, j, k, q] == 1:
+                        continue 
+                    kernel[i, j, k, q] = check_viable_state(i, j, k, q, dynamics, previous_kernel)
 
     return kernel
 
 @njit(cache=True)
-def check_viable_state(i, j, k, dynamics, previous_kernel):
-    l_xs, l_ys, l_phis = previous_kernel.shape
+def check_viable_state(i, j, k, q, dynamics, previous_kernel):
+    l_xs, l_ys, l_phis, l_qs = previous_kernel.shape
     n_modes = dynamics.shape[1]
+    # q value will be used to apply dynamic limits on the search
     for l in range(n_modes):
         di, dj, new_k, new_q = dynamics[k, l, :]
         new_i = min(max(0, i + di), l_xs-1)  
         new_j = min(max(0, j + dj), l_ys-1)
 
-        if not previous_kernel[new_i, new_j, new_k]:
+        # use the new q value to check if that state is ok.
+        if not previous_kernel[new_i, new_j, new_k, new_q]:
             return False
     return True
 

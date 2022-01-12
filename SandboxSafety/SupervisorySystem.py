@@ -258,12 +258,12 @@ class BaseKernel:
         plt.pause(0.0001)
 
     def check_state(self, state=[0, 0, 0]):
-        i, j, k= self.get_indices(state)
+        i, j, k, m = self.get_indices(state)
 
         # print(f"Expected Location: {state} -> Inds: {i}, {j}, {k} -> Value: {self.kernel[i, j, k]}")
         if self.plotting:
             self.plot_kernel_point(i, j, k)
-        if self.kernel[i, j, k] != 0:
+        if self.kernel[i, j, k, m] != 0:
             return False # unsfae state
         return True # safe state
 
@@ -281,6 +281,19 @@ class BaseKernel:
         filled = np.count_nonzero(self.kernel)
         total = self.kernel.size
         print(f"Filled: {filled} / {total} -> {filled/total}")
+
+
+def get_state_mode(v, d):
+    # q_vals = np.linspace(-max_steer, max_steer, n_modes)
+    max_steer = 0.4
+    n_modes = 5
+    # velocity = 2
+    q_step = (2*max_steer) / (n_modes-1)
+    
+    q = int(round((d+max_steer) / q_step))
+
+    #TODO: add check in here for the limits. 
+    return q
 
 class ForestKernel(BaseKernel):
     def __init__(self, sim_conf, plotting=False):
@@ -301,13 +314,14 @@ class ForestKernel(BaseKernel):
         y_ind = min(max(0, int(round((state[1])*self.resolution))), self.kernel.shape[1]-1)
         theta_ind = int(round((state[2] + phi_range/2) / phi_range * (self.kernel.shape[2]-1)))
         theta_ind = min(max(0, theta_ind), self.kernel.shape[2]-1)
+        mode = get_state_mode(state[3], state[4])
 
-        return x_ind, y_ind, theta_ind
+        return x_ind, y_ind, theta_ind, mode
 
 
 @njit(cache=True)
 def construct_forest_kernel(track_size, obs_locations, resolution, side_kernel, obs_kernel, obs_offset):
-    kernel = np.zeros((track_size[0], track_size[1], side_kernel.shape[2]))
+    kernel = np.zeros((track_size[0], track_size[1], side_kernel.shape[2], side_kernel.shape[3]))
     length = int(track_size[1] / resolution)
     for i in range(length):
         kernel[:, i*resolution:(i+1)*resolution] = side_kernel
