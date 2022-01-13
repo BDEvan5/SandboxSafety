@@ -112,7 +112,7 @@ class Supervisor:
         return self.m.qs
 
     def modify_action2mode(self, init_action):
-        id = self.m.get_mode_id(init_action[0], init_action[1])
+        id = self.m.get_mode_id(init_action[1], init_action[0])
         return self.m.qs[id]
 
     def check_init_action(self, state, init_action):

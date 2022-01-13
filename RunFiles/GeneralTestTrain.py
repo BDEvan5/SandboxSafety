@@ -175,7 +175,7 @@ def test_kernel_vehicle(env, vehicle, show=False, laps=100, add_obs=False, wait=
             # vehicle.history.save_nn_output()
             env.render(wait=wait, name=vehicle.planner.name)
             # plt.pause(1)
-            # vehicle.safe_history.plot_safe_history()
+            vehicle.safe_history.plot_safe_history()
 
         if r == -1:
             crashes += 1
