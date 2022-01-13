@@ -18,8 +18,8 @@ kernel_name = f"kernel_sap_{run_n}"
 def rando_test():
     conf = load_conf("forest_kernel")
 
-    construct_obs_kernel(conf)
-    construct_kernel_sides(conf)
+    # construct_obs_kernel(conf)
+    # construct_kernel_sides(conf)
 
     env = ForestSim(conf)
     planner = RandomPlanner()
@@ -32,12 +32,12 @@ def rando_test():
 def pp_test():
     conf = load_conf("forest_kernel")
 
-    construct_obs_kernel(conf)
+    # construct_obs_kernel(conf)
     # construct_kernel_sides(conf)
 
     env = ForestSim(conf)
     planner = PurePursuit(conf)
-    kernel = ForestKernel(conf)
+    kernel = ForestKernel(conf, True)
     safety_planner = Supervisor(planner, kernel, conf)
 
     # run_test_loop(env, safety_planner, True, 10)
@@ -71,8 +71,8 @@ def test_construction():
 
 if __name__ == "__main__":
     # rando_test()
-    # pp_test()
+    pp_test()
 
     # test_kernels()
 
-    test_construction()
+    # test_construction()

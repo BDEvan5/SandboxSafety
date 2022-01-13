@@ -86,9 +86,10 @@ class Supervisor:
         init_action = self.planner.plan_act(obs)
         state = np.array(obs['state'])
 
-        safe, next_state = self.check_init_action(state, init_action)
+        init_mode_action = self.modify_action2mode(init_action)
+        safe, next_state = self.check_init_action(state, init_mode_action)
         if safe:
-            self.safe_history.add_locations(init_action[0], init_action[0])
+            self.safe_history.add_locations(init_mode_action[0], init_mode_action[0])
             return init_action
 
         dw = self.generate_dw()
@@ -109,6 +110,10 @@ class Supervisor:
 
     def generate_dw(self):
         return self.m.qs
+
+    def modify_action2mode(self, init_action):
+        id = self.m.get_mode_id(init_action[0], init_action[1])
+        return self.m.qs[id]
 
     def check_init_action(self, state, init_action):
         d, v = init_action

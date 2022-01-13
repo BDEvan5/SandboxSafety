@@ -15,7 +15,7 @@ max_steer: 0.4
 max_d_dot: 3.2
 
 time_step: 0.1
-viab_time: 0.1
+# viab_time: 0.08
 update_steps: 1
 max_steps: 5000
 
@@ -29,7 +29,7 @@ end_y: 21
 obstacle_buffer: 3
 
 n_obs: 4
-obs_size: 0.5
+obs_size: 0.7
 
 kernel_path: "Data/Kernels/"
 # kernel_mode: "disc"
@@ -46,7 +46,7 @@ dynamics_pts: 5
 discrim_block: 1 
 discrim_phi: 0.5
 kernel_time_step: 0.1
-lookahead_time_step: 0.2
+lookahead_time_step: 0.1
 
 # PP parametes
 v_gain: 0.5
