@@ -99,7 +99,8 @@ class Supervisor:
             # plt.show()
             return init_action
         
-        action = modify_action(valids, dw)
+        # action = modify_action(valids, dw)
+        action = self.m.modify_mode(valids)
         # print(f"Valids: {valids} -> new action: {action}")
         self.safe_history.add_locations(init_action[0], action[0])
 
@@ -265,6 +266,7 @@ class Modes:
         self.n_modes = None
         self.nv_modes = None
         self.v_mode_list = None
+        self.nv_level_modes = None
 
         self.init_modes()
 
@@ -291,10 +293,11 @@ class Modes:
 
             nv_modes.append(len(v_mode_list[i])+nv_modes[-1])
 
-        self.qs = np.array(mode_list)
-        self.n_modes = len(mode_list)
-        self.nv_modes = np.array(nv_modes)
-        self.v_mode_list = v_mode_list
+        self.qs = np.array(mode_list) # modes1
+        self.n_modes = len(mode_list) # n modes
+        self.nv_modes = np.array(nv_modes) # number of v modes in each level
+        self.nv_level_modes = np.diff(self.nv_modes) # number of v modes in each level
+        self.v_mode_list = v_mode_list # list of steering angles sorted by velocity
 
         # print(self.qs)
         # print(v_mode_list)
@@ -321,8 +324,40 @@ class Modes:
 
     def __len__(self): return self.n_modes
 
-    # def modify_mode(self, valid_window, init_mode):
+    def modify_mode(self, valid_window):
+        """ 
+        modifies the action for obstacle avoidance only, it doesn't check the dynamic limits here.
+        """
+        # max_v_idx = 
+        #TODO: decrease the upper limit of the search according to the velocity
+        for vm in range(self.nq_velocity-1, 0, -1):
+            idx_search = int(self.nv_modes[vm] +(self.nv_level_modes[vm]-1)/2) # idx to start searching at.
 
+            if self.nv_level_modes[vm] == 1:
+                if valid_window[idx_search]:
+                    return self.qs[idx_search]
+                continue
+
+            # at this point there are at least 3 steer options
+            d_search_size = int((self.nv_level_modes[vm]-1)/2)
+            for dind in range(d_search_size+1): # for d_ss=1 it should search, 0 and 1.
+                p_d = int(idx_search+dind)
+                if valid_window[p_d]:
+                    return self.qs[p_d]
+                n_d = int(idx_search-dind)
+                if valid_window[n_d]:
+                    return self.qs[n_d]
+            
+
+        idx_search = int((len(self.qs)-1)/2)
+        d_size = len(valid_window)
+        for i in range(d_size):
+            p_d = int(min(d_size-1, idx_search+i))
+            if valid_window[p_d]:
+                return self.qs[p_d]
+            n_d = int(max(0, idx_search-i))
+            if valid_window[n_d]:
+                return self.qs[n_d]
 
 class BaseKernel:
     def __init__(self, sim_conf, plotting):
