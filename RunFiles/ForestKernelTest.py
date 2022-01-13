@@ -37,7 +37,7 @@ def pp_test():
 
     env = ForestSim(conf)
     planner = PurePursuit(conf)
-    kernel = ForestKernel(conf)
+    kernel = ForestKernel(conf, True)
     safety_planner = Supervisor(planner, kernel, conf)
 
     # run_test_loop(env, safety_planner, True, 10)

@@ -82,13 +82,11 @@ class Supervisor:
 
         self.m = Modes(conf)
 
-
-
     def plan(self, obs):
         init_action = self.planner.plan_act(obs)
         state = np.array(obs['state'])
 
-        safe, next_state = check_init_action(state, init_action, self.kernel, self.time_step)
+        safe, next_state = self.check_init_action(state, init_action)
         if safe:
             self.safe_history.add_locations(init_action[0], init_action[0])
             return init_action
@@ -110,25 +108,18 @@ class Supervisor:
 
     def generate_dw(self):
         return self.m.qs
-        # #TODO: get this from the mode object.
-        # n_segments = 5
-        # dw = np.ones((5, 2))
-        # dw[:, 0] = np.linspace(-self.d_max, self.d_max, n_segments)
-        # dw[:, 1] *= self.v
-        # # dw = np.vstack((dw, dw, dw))
-        # # dw[0:5, 1] *= 1
-        # # dw[5:10, 1] *= 2
-        # # dw[10:, 1] *= 3
-        # return dw
 
     def check_init_action(self, state, init_action):
         d, v = init_action
         b = 0.523
         g = 9.81
         l_d = 0.329
-        friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1
-        if friction_v < v:
-            return False, state
+        if abs(d)> 0.06: 
+            #  only check the friction limit if it might be a problem
+            friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1
+            if friction_v < v:
+                print(f"Invalid action: check planner or expect bad resultsL {init_action} -> max_friction_v: {friction_v}")
+                return False, state
 
         next_state = update_complex_state(state, init_action, self.time_step)
         safe = self.kernel.check_state(next_state)
@@ -259,7 +250,6 @@ def modify_action(valid_window, dw):
 
 
 
-
 class Modes:
     def __init__(self, sim_conf):
         self.nq_steer = sim_conf.nq_steer
@@ -304,7 +294,7 @@ class Modes:
         self.qs = np.array(mode_list)
         self.n_modes = len(mode_list)
         self.nv_modes = np.array(nv_modes)
-        self.v_mode_list = np.array(v_mode_list)
+        self.v_mode_list = v_mode_list
 
         # print(self.qs)
         # print(v_mode_list)
@@ -331,7 +321,8 @@ class Modes:
 
     def __len__(self): return self.n_modes
 
-    
+    # def modify_mode(self, valid_window, init_mode):
+
 
 class BaseKernel:
     def __init__(self, sim_conf, plotting):
@@ -363,16 +354,16 @@ class BaseKernel:
 
         # print(f"Expected Location: {state} -> Inds: {i}, {j}, {k} -> Value: {self.kernel[i, j, k]}")
         if self.plotting:
-            self.plot_kernel_point(i, j, k)
+            self.plot_kernel_point(i, j, k, m)
         if self.kernel[i, j, k, m] != 0:
             return False # unsfae state
         return True # safe state
 
-    def plot_kernel_point(self, i, j, k):
+    def plot_kernel_point(self, i, j, k, m):
         plt.figure(5)
         plt.clf()
-        plt.title(f"Kernel inds: {i}, {j}, {k}")
-        img = self.kernel[:, :, k].T 
+        plt.title(f"Kernel inds: {i}, {j}, {k}, {m}: {self.m.qs[m]}")
+        img = self.kernel[:, :, k, m].T 
         plt.imshow(img, origin='lower')
         plt.plot(i, j, 'x', markersize=20, color='red')
         # plt.show()

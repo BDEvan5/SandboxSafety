@@ -17,3 +17,17 @@ def calculate_speed(delta):
     V = f_s * np.sqrt(b*g*l_d/np.tan(abs(delta)))
 
     return V
+
+@njit(cache=True)
+def calculate_speed_fs0(delta):
+    b = 0.523
+    g = 9.81
+    l_d = 0.329
+    max_v = 7
+
+    if abs(delta) < 0.06:
+        return max_v
+
+    V = np.sqrt(b*g*l_d/np.tan(abs(delta)))
+
+    return V

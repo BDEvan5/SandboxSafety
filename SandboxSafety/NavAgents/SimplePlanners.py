@@ -1,6 +1,6 @@
 import numpy as np
 from SandboxSafety.NavUtils import pure_pursuit_utils
-from SandboxSafety.NavUtils.speed_utils import calculate_speed
+from SandboxSafety.NavUtils.speed_utils import calculate_speed, calculate_speed_fs0
 import csv 
 
 from SandboxSafety.NavAgents.TrackPP import PurePursuit as TrackPP
@@ -89,7 +89,9 @@ class PurePursuit:
         radius = 1/(2.0*waypoint_y/self.lookahead_distance**2)
         steering_angle = np.arctan(self.L/radius)
         steering_angle = np.clip(steering_angle, -self.d_max, self.d_max)
-        return np.array([steering_angle, self.v])
+
+        v = min(self.v, calculate_speed_fs0(steering_angle))
+        return np.array([steering_angle, v])
 
 
 
