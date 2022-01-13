@@ -97,7 +97,7 @@ class Supervisor:
         if not valids.any():
             print('No Valid options')
             print(f"State: {obs['state']}")
-            # plt.show()
+            plt.show()
             return init_action
         
         # action = modify_action(valids, dw)

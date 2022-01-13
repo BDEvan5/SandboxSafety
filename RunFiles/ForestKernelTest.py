@@ -32,8 +32,8 @@ def rando_test():
 def pp_test():
     conf = load_conf("forest_kernel")
 
-    # construct_obs_kernel(conf)
-    # construct_kernel_sides(conf)
+    construct_obs_kernel(conf)
+    construct_kernel_sides(conf)
 
     env = ForestSim(conf)
     planner = PurePursuit(conf)
