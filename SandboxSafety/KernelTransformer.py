@@ -1,4 +1,5 @@
 import numpy as np
+from SandboxSafety.Simulator.Dynamics import update_complex_state
 
 
 class Modes:
@@ -58,6 +59,7 @@ class Modes:
         
         return return_mode
 
+    def __len__(self): return self.n_modes
 
 class KernelTransformer:
     def __init__(self, conf):
@@ -76,6 +78,89 @@ class KernelTransformer:
         print(turtle.shape)
 
 
+class TestKernel:
+    def __init__(self, conf):
+        self.kernel = np.load(f"{conf.kernel_path}ObsKernel_{conf.kernel_mode}.npy")
+
+        self.plotting = False
+        self.resolution = conf.n_dx
+        self.m = Modes(conf)
+
+
+    def check_state(self, state=[0, 0, 0, 0, 0]):
+        i, j, k, m = self.get_indices(state)
+
+        if self.plotting:
+            self.plot_kernel_point(i, j, k, m)
+        if self.kernel[i, j, k, m] != 0:
+            return False # unsfae state
+        return True # safe state
+
+    def get_indices(self, state):
+        phi_range = np.pi
+        x_ind = min(max(0, int(round((state[0])*self.resolution))), self.kernel.shape[0]-1)
+        y_ind = min(max(0, int(round((state[1])*self.resolution))), self.kernel.shape[1]-1)
+        theta_ind = int(round((state[2] + phi_range/2) / phi_range * (self.kernel.shape[2]-1)))
+        theta_ind = min(max(0, theta_ind), self.kernel.shape[2]-1)
+        mode = self.m.get_mode_id(state[3], state[4])
+
+        return x_ind, y_ind, theta_ind, mode
+
+def check_fast_state(kernel, state):
+    resolution = 40 #TODO: manual set
+    x_ind = min(max(0, int(round((state[0])*resolution))), kernel.shape[0]-1)
+    y_ind = min(max(0, int(round((state[1])*resolution))), kernel.shape[1]-1)
+    theta_ind = int(round((state[2] + np.pi/2) / np.pi * (kernel.shape[2]-1)))
+    theta_ind = min(max(0, theta_ind), kernel.shape[2]-1)
+
+    mode = self.m.get_mode_id(state[3], state[4])
+
+
+def index_transformer(conf):
+    m = Modes(conf)
+    kernel = np.load(f"{conf.kernel_path}ObsKernel_{conf.kernel_mode}.npy")
+    index_kernel = np.zeros_like(kernel)
+
+    inds = np.nonzero(kernel)
+    inds = np.array(inds).T
+    length = inds.shape[0]
+    
+
+    turtle = np.zeros((length, len(m)))
+    print(turtle.shape)
+
+    kernel = TestKernel(conf)
+
+    for i in range(length):
+        idx = inds[i]
+        index_kernel[idx[0], idx[1], idx[2], idx[3]] = i
+
+        d, v = m.qs[idx[3]]
+        state = np.array([idx[0], idx[1], idx[2], v, d])
+        valid_window = simulate_and_classify(state, m.qs, kernel, time_step=0.1)
+
+        turtle[i] = valid_window
+
+        print(i)
+
+    np.save(f"{conf.kernel_path}ObsIdxTurtle_{conf.kernel_mode}.npy", index_kernel)
+    np.save(f"{conf.kernel_path}ObsTurtle_{conf.kernel_mode}.npy", turtle)
+
+    print(f"Finished")
+
+def simulate_and_classify(state, dw, kernel, time_step=0.1):
+    valid_ds = np.ones(len(dw))
+    for i in range(len(dw)):
+        next_state = update_complex_state(state, dw[i], time_step)
+        safe = kernel.check_state(next_state)
+        valid_ds[i] = safe 
+
+    return valid_ds 
+
+
+
+
+
 import yaml 
 from argparse import Namespace
 def load_conf(fname):
@@ -88,8 +173,9 @@ def load_conf(fname):
     return conf
 
 if __name__ == "__main__":
-    kt = KernelTransformer(load_conf("forest_kernel"))
+    # kt = KernelTransformer(load_conf("forest_kernel"))
 
+    index_transformer(load_conf("forest_kernel"))
 
 
 

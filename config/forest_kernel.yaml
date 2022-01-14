@@ -21,7 +21,7 @@ max_steps: 5000
 
 # map info
 map_name: "forest2"
-n_dx: 80
+n_dx: 40
 forest_length: 25
 forest_width: 2
 start_pose: [1, 1, 0]

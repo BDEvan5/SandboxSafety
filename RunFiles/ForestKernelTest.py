@@ -71,8 +71,8 @@ def test_construction():
 
 if __name__ == "__main__":
     # rando_test()
-    pp_test()
+    # pp_test()
 
     # test_kernels()
 
-    # test_construction()
+    test_construction()
