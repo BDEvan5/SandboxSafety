@@ -18,8 +18,8 @@ kernel_name = f"kernel_sap_{run_n}"
 def rando_test():
     conf = load_conf("forest_kernel")
 
-    # construct_obs_kernel(conf)
-    # construct_kernel_sides(conf)
+    construct_obs_kernel(conf)
+    construct_kernel_sides(conf)
 
     env = ForestSim(conf)
     planner = RandomPlanner()

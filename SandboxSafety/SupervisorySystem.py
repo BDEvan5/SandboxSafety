@@ -4,7 +4,7 @@ from numba import njit
 from matplotlib import pyplot as plt
 import yaml, csv
 from SandboxSafety.Simulator.Dynamics import update_complex_state, update_std_state
-
+from SandboxSafety.Modes import Modes
 
 class SafetyHistory:
     def __init__(self):
@@ -100,8 +100,7 @@ class Supervisor:
             # plt.show()
             return init_action
         
-        # action = modify_action(valids, dw)
-        action = self.m.modify_mode(valids)
+        action = modify_mode(self.m, valids)
         # print(f"Valids: {valids} -> new action: {action}")
         self.safe_history.add_locations(init_action[0], action[0])
 
@@ -218,15 +217,7 @@ class LearningSupervisor(Supervisor):
         return action, fake_done
 
 
-#TODO jit all of this.
-
-# def check_init_action(state, u0, kernel, time_step=0.1):
-#     next_state = update_complex_state(state, u0, time_step)
-#     safe = kernel.check_state(next_state)
-    
-#     return safe, next_state
-
-def simulate_and_classify(state, dw, kernel, time_step=0.1):
+def simulate_and_classify(state, dw, kernel, time_step):
     valid_ds = np.ones(len(dw))
     for i in range(len(dw)):
         next_state = update_complex_state(state, dw[i], time_step)
@@ -237,132 +228,41 @@ def simulate_and_classify(state, dw, kernel, time_step=0.1):
 
     return valid_ds 
 
-
-
-@njit(cache=True)
-def modify_action(valid_window, dw):
+def modify_mode(self: Modes, valid_window):
     """ 
-    By the time that I get here, I have already established that pp action is not ok so I cannot select it, I must modify the action. 
+    modifies the action for obstacle avoidance only, it doesn't check the dynamic limits here.
     """
-    idx_search = int((len(dw)-1)/2)
+    # max_v_idx = 
+    #TODO: decrease the upper limit of the search according to the velocity
+    for vm in range(self.nq_velocity-1, 0, -1):
+        idx_search = int(self.nv_modes[vm] +(self.nv_level_modes[vm]-1)/2) # idx to start searching at.
+
+        if self.nv_level_modes[vm] == 1:
+            if valid_window[idx_search]:
+                return self.qs[idx_search]
+            continue
+
+        # at this point there are at least 3 steer options
+        d_search_size = int((self.nv_level_modes[vm]-1)/2)
+        for dind in range(d_search_size+1): # for d_ss=1 it should search, 0 and 1.
+            p_d = int(idx_search+dind)
+            if valid_window[p_d]:
+                return self.qs[p_d]
+            n_d = int(idx_search-dind)
+            if valid_window[n_d]:
+                return self.qs[n_d]
+        
+
+    idx_search = int((len(self.qs)-1)/2)
     d_size = len(valid_window)
     for i in range(d_size):
         p_d = int(min(d_size-1, idx_search+i))
         if valid_window[p_d]:
-            return dw[p_d]
+            return self.qs[p_d]
         n_d = int(max(0, idx_search-i))
         if valid_window[n_d]:
-            return dw[n_d]
+            return self.qs[n_d]
 
-
-
-class Modes:
-    def __init__(self, sim_conf):
-        self.nq_steer = sim_conf.nq_steer
-        self.nq_velocity = sim_conf.nq_velocity
-        self.max_steer = sim_conf.max_steer
-        self.max_velocity = sim_conf.max_v
-        self.min_velocity = sim_conf.min_v
-
-        self.vs = np.linspace(self.min_velocity, self.max_velocity, self.nq_velocity)
-        self.ds = np.linspace(-self.max_steer, self.max_steer, self.nq_steer)
-
-        self.qs = None
-        self.n_modes = None
-        self.nv_modes = None
-        self.v_mode_list = None
-        self.nv_level_modes = None
-
-        self.init_modes()
-
-    def init_modes(self):
-        b = 0.523
-        g = 9.81
-        l_d = 0.329
-
-        mode_list = []
-        v_mode_list = []
-        nv_modes = [0]
-        for i, v in enumerate(self.vs):
-            v_mode_list.append([])
-            for s in self.ds:
-                if abs(s) < 0.06:
-                    mode_list.append([s, v])
-                    v_mode_list[i].append(s)
-                    continue
-
-                friction_v = np.sqrt(b*g*l_d/np.tan(abs(s))) *1.1 # nice for the maths, but a bit wrong for actual friction
-                if friction_v > v:
-                    mode_list.append([s, v])
-                    v_mode_list[i].append(s)
-
-            nv_modes.append(len(v_mode_list[i])+nv_modes[-1])
-
-        self.qs = np.array(mode_list) # modes1
-        self.n_modes = len(mode_list) # n modes
-        self.nv_modes = np.array(nv_modes) # number of v modes in each level
-        self.nv_level_modes = np.diff(self.nv_modes) # number of v modes in each level
-        self.v_mode_list = v_mode_list # list of steering angles sorted by velocity
-
-        # print(self.qs)
-        # print(v_mode_list)
-        # print(f"Number of modes: {self.n_modes}")
-        # print(f"Number of v modes: {nv_modes}")
-
-    def check_mode_lims(self, v, d):
-        b = 0.523
-        g = 9.81
-        l_d = 0.329
-        friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1
-        if friction_v > v:
-            return True
-        return False
-
-    def get_mode_id(self, v, d):
-        # assume that a valid input is given that is within the range.
-        v_ind = np.argmin(np.abs(self.vs - v))
-        d_ind = np.argmin(np.abs(self.v_mode_list[v_ind] - d))
-        
-        return_mode = self.nv_modes[v_ind] + d_ind
-        
-        return return_mode
-
-    def __len__(self): return self.n_modes
-
-    def modify_mode(self, valid_window):
-        """ 
-        modifies the action for obstacle avoidance only, it doesn't check the dynamic limits here.
-        """
-        # max_v_idx = 
-        #TODO: decrease the upper limit of the search according to the velocity
-        for vm in range(self.nq_velocity-1, 0, -1):
-            idx_search = int(self.nv_modes[vm] +(self.nv_level_modes[vm]-1)/2) # idx to start searching at.
-
-            if self.nv_level_modes[vm] == 1:
-                if valid_window[idx_search]:
-                    return self.qs[idx_search]
-                continue
-
-            # at this point there are at least 3 steer options
-            d_search_size = int((self.nv_level_modes[vm]-1)/2)
-            for dind in range(d_search_size+1): # for d_ss=1 it should search, 0 and 1.
-                p_d = int(idx_search+dind)
-                if valid_window[p_d]:
-                    return self.qs[p_d]
-                n_d = int(idx_search-dind)
-                if valid_window[n_d]:
-                    return self.qs[n_d]
-            
-
-        idx_search = int((len(self.qs)-1)/2)
-        d_size = len(valid_window)
-        for i in range(d_size):
-            p_d = int(min(d_size-1, idx_search+i))
-            if valid_window[p_d]:
-                return self.qs[p_d]
-            n_d = int(max(0, idx_search-i))
-            if valid_window[n_d]:
-                return self.qs[n_d]
 
 class BaseKernel:
     def __init__(self, sim_conf, plotting):
