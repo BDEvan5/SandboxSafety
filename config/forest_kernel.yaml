@@ -14,7 +14,7 @@ max_a: 8.5
 max_steer: 0.4
 max_d_dot: 3.2
 
-time_step: 0.1
+sim_time_step: 0.1
 # viab_time: 0.08
 update_steps: 1
 max_steps: 5000
@@ -34,7 +34,7 @@ obs_size: 0.5
 kernel_path: "Data/Kernels/"
 kernel_mode: "disc"
 # kernel_mode: "viab"
-obs_img_size: 3 # size in meters 
+obs_img_size: 4 # size in meters 
 side_img_size: [2, 1]
 n_phi: 41
 # n_modes: 5

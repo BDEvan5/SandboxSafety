@@ -125,7 +125,7 @@ class BaseSim:
         self.sim_conf = sim_conf #TODO: don't store the conf file, just use and throw away.
         self.n_obs = self.env_map.n_obs
 
-        self.timestep = self.sim_conf.time_step
+        self.timestep = self.sim_conf.sim_time_step
         self.max_steps = self.sim_conf.max_steps
         self.plan_steps = self.sim_conf.update_steps
         self.n_beams = self.sim_conf.n_beams
