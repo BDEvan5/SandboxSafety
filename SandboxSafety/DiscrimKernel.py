@@ -173,12 +173,12 @@ class DiscrimGenerator(BaseKernel):
         self.axs[0, 0].set_title(f"Kernel speed: {2}")
         # axs[0, 0].clear()
         self.axs[1, 0].imshow(self.kernel[:, :, phi_ind, 11].T + self.o_map.T, origin='lower')
-        self.axs[1, 0].set_title(f"Kernel speed: {4}")
+        self.axs[1, 0].set_title(f"Kernel speed: {3}")
         self.axs[0, 1].imshow(self.kernel[:, :, phi_ind, 15].T + self.o_map.T, origin='lower')
-        self.axs[0, 1].set_title(f"Kernel speed: {6}")
+        self.axs[0, 1].set_title(f"Kernel speed: {4}")
 
         self.axs[1, 1].imshow(self.kernel[:, :, phi_ind, 18].T + self.o_map.T, origin='lower')
-        self.axs[1, 1].set_title(f"Kernel phi: {2}")
+        self.axs[1, 1].set_title(f"Kernel speed: {6}")
 
         # plt.title(f"Building Kernel")
 
@@ -225,11 +225,12 @@ def build_discrim_dynamics(phis, m, time, conf):
     resolution = conf.n_dx
     phi_range = conf.phi_range
     block_size = 1 / (resolution)
-    h = conf.discrim_block * block_size 
+    h = conf.discrim_block * block_size *0.5
     phi_size = phi_range / (conf.n_phi -1)
     ph = conf.discrim_phi * phi_size
 
-    dynamics = np.zeros((len(phis), len(m), len(m), 8, 4), dtype=np.int)
+    ns = 1
+    dynamics = np.zeros((len(phis), len(m), len(m), 8*ns, 4), dtype=np.int)
     for i, p in enumerate(phis):
         for j, state_mode in enumerate(m.qs): # searches through old q's
             state = np.array([0, 0, p, state_mode[1], state_mode[0]])
@@ -251,20 +252,33 @@ def build_discrim_dynamics(phis, m, time, conf):
 
                 temp_dynamics = generate_temp_dynamics(dx, dy, h, resolution)
                 
-                dynamics[i, j, k, :, 0:2] = np.copy(temp_dynamics)
-                dynamics[i, j, k, :, 3] = int(new_q) # no q discretisation error
+                dynamics[i, j, k, 0:8, 0:2] = np.copy(temp_dynamics)
+                dynamics[i, j, k, 0:8, 3] = int(new_q) # no q discretisation error
 
-                # if t == 4:
-                #     print(f"State: {state}")
-                #     print(f"Action: {action}")
-                #     print(f"New state: {new_state}")
-                #     print(f"Std new state: {std_new_state}")
-                #     print(f"Difference: {ds}")
-                #     print(temp_dynamics)
-                #     print("------------------")
-                #     pass
+
+                # new_state = update_complex_state(state, action, time*3/4)
+                # dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
+                # new_q = m.get_mode_id(vel, steer)
+
+                # if phi > np.pi:
+                #     phi = phi - 2*np.pi
+                # elif phi < -np.pi:
+                #     phi = phi + 2*np.pi
+
+                # new_k_min = int(round((phi - ph + phi_range/2) / phi_range * (len(phis)-1)))
+                # dynamics[i, j, k, 8:8+4, 2] = min(max(0, new_k_min), len(phis)-1)
+                
+                # new_k_max = int(round((phi + ph + phi_range/2) / phi_range * (len(phis)-1)))
+                # dynamics[i, j, k, 12:16, 2] = min(max(0, new_k_max), len(phis)-1)
+
+                # temp_dynamics = generate_temp_dynamics(dx, dy, h, resolution)
+                
+                # dynamics[i, j, k, 8:, 0:2] = np.copy(temp_dynamics)
+                # dynamics[i, j, k, 8:, 3] = int(new_q) # no q discretisation error
+
 
     return dynamics
+
 
 @njit(cache=True)
 def generate_temp_dynamics(dx, dy, h, resolution):
@@ -281,19 +295,6 @@ def generate_temp_dynamics(dx, dy, h, resolution):
         temp_dynamics[3 + i*4, 1] = int(round((dy -h) * resolution))
 
     return temp_dynamics
-
-@njit(cache=True)
-def discrim_loop(kernel, n_modes, dynamics):
-    previous_kernel = np.copy(kernel)
-    l_xs, l_ys, l_phis = kernel.shape
-    for i in range(l_xs):
-        for j in range(l_ys):
-            for k in range(l_phis):
-                    if kernel[i, j, k] == 1:
-                        continue 
-                    kernel[i, j, k] = check_kernel_state(i, j, k, n_modes, dynamics, previous_kernel)
-
-    return kernel
 
 @njit(cache=True)
 def viability_loop(kernel, dynamics):

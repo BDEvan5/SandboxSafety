@@ -97,7 +97,7 @@ class Supervisor:
         if not valids.any():
             print('No Valid options')
             print(f"State: {obs['state']}")
-            plt.show()
+            # plt.show()
             return init_action
         
         # action = modify_action(valids, dw)
@@ -373,7 +373,7 @@ class BaseKernel:
     def view_kernel(self, theta):
         phi_range = np.pi
         theta_ind = int(round((theta + phi_range/2) / phi_range * (self.kernel.shape[2]-1)))
-        plt.figure(5)
+        plt.figure(6)
         plt.title(f"Kernel phi: {theta} (ind: {theta_ind})")
         img = self.kernel[:, :, theta_ind].T 
         plt.imshow(img, origin='lower')
@@ -400,7 +400,7 @@ class BaseKernel:
         return True # safe state
 
     def plot_kernel_point(self, i, j, k, m):
-        plt.figure(5)
+        plt.figure(6)
         plt.clf()
         plt.title(f"Kernel inds: {i}, {j}, {k}, {m}: {self.m.qs[m]}")
         img = self.kernel[:, :, k, m].T 

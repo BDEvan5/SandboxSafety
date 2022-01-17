@@ -21,7 +21,7 @@ max_steps: 5000
 
 # map info
 map_name: "forest2"
-n_dx: 40
+n_dx: 80
 forest_length: 25
 forest_width: 2
 start_pose: [1, 1, 0]
@@ -44,8 +44,8 @@ phi_range: 3.141
 dynamics_pts: 5
 discrim_block: 1 
 discrim_phi: 0.5
-kernel_time_step: 0.1
-lookahead_time_step: 0.2
+kernel_time_step: 0.09
+lookahead_time_step: 0.1
 
 # PP parametes
 v_gain: 0.5
