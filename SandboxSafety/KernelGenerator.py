@@ -32,7 +32,14 @@ def construct_kernel_sides(conf): #TODO: combine to single fcn?
     img = np.zeros(img_size) # use res arg and set length
     img[0, :] = 1
     img[-1, :] = 1
-    kernel = ViabilityGenerator(img, conf)
+
+    if conf.kernel_mode == 'viab':
+        kernel = ViabilityGenerator(img, conf)
+    elif conf.kernel_mode == 'disc':
+        kernel = DiscrimGenerator(img, conf)
+    else:
+        raise ValueError(f"Unknown kernel mode: {conf.kernel_mode}")
+ 
     kernel.calculate_kernel()
     kernel.save_kernel(f"SideKernel_{conf.kernel_mode}")
 

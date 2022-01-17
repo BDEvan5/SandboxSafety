@@ -32,9 +32,8 @@ n_obs: 4
 obs_size: 0.5
 
 kernel_path: "Data/Kernels/"
-# kernel_mode: "disc"
+kernel_mode: "disc"
 # kernel_mode: "viab"
-kernel_mode: "viab"
 obs_img_size: 3 # size in meters 
 side_img_size: [2, 1]
 n_phi: 41

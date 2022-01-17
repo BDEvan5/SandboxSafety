@@ -63,16 +63,16 @@ def test_kernels():
 def test_construction():
     conf = load_conf("forest_kernel")
 
-    construct_obs_kernel(conf)
-    # construct_kernel_sides(conf)
+    # construct_obs_kernel(conf)
+    construct_kernel_sides(conf)
 
 
 
 
 if __name__ == "__main__":
     # rando_test()
-    # pp_test()
+    pp_test()
 
     # test_kernels()
 
-    test_construction()
+    # test_construction()

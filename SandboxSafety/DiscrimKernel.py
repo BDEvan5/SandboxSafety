@@ -3,22 +3,83 @@ import matplotlib.pyplot as plt
 from numba import njit
 import yaml
 from PIL import Image
-from SandboxSafety.Simulator.Dynamics import update_std_state, update_complex_state, update_complex_state_const
+from SandboxSafety.Simulator.Dynamics import update_complex_state
 
 from SandboxSafety.ViabKernel import BaseKernel
 
+class Modes:
+    def __init__(self, sim_conf):
+        self.nq_steer = sim_conf.nq_steer
+        self.nq_velocity = sim_conf.nq_velocity
+        self.max_steer = sim_conf.max_steer
+        self.max_velocity = sim_conf.max_v
+        self.min_velocity = sim_conf.min_v
+
+        self.vs = np.linspace(self.min_velocity, self.max_velocity, self.nq_velocity)
+        self.ds = np.linspace(-self.max_steer, self.max_steer, self.nq_steer)
+
+        self.qs = None
+        self.n_modes = None
+        self.nv_modes = None
+        self.v_mode_list = None
+
+        self.init_modes()
+
+    def init_modes(self):
+        b = 0.523
+        g = 9.81
+        l_d = 0.329
+
+        mode_list = []
+        v_mode_list = []
+        nv_modes = [0]
+        for i, v in enumerate(self.vs):
+            v_mode_list.append([])
+            for s in self.ds:
+                if abs(s) < 0.06:
+                    mode_list.append([s, v])
+                    v_mode_list[i].append(s)
+                    continue
+
+                friction_v = np.sqrt(b*g*l_d/np.tan(abs(s))) *1.1 # nice for the maths, but a bit wrong for actual friction
+                if friction_v > v:
+                    mode_list.append([s, v])
+                    v_mode_list[i].append(s)
+
+            nv_modes.append(len(v_mode_list[i])+nv_modes[-1])
+
+        self.qs = np.array(mode_list)
+        self.n_modes = len(mode_list)
+        self.nv_modes = np.array(nv_modes)
+        self.v_mode_list = np.array(v_mode_list)
+
+        print(self.qs)
+        print(v_mode_list)
+        print(f"Number of modes: {self.n_modes}")
+        print(f"Number of v modes: {nv_modes}")
+
+    def get_mode_id(self, v, d):
+        # assume that a valid input is given that is within the range.
+        v_ind = np.argmin(np.abs(self.vs - v))
+        d_ind = np.argmin(np.abs(self.v_mode_list[v_ind] - d))
+        
+        return_mode = self.nv_modes[v_ind] + d_ind
+        
+        return return_mode
+
+    def __len__(self): return self.n_modes
 
 
 class DiscrimGenerator(BaseKernel):
     def __init__(self, track_img, sim_conf):
         super().__init__(track_img, sim_conf)
         
-        self.kernel = np.zeros((self.n_x, self.n_y, self.n_phi))
-        self.previous_kernel = np.zeros((self.n_x, self.n_y, self.n_phi))
+        self.kernel = np.zeros((self.n_x, self.n_y, self.n_phi, self.n_modes))
+        self.previous_kernel = np.zeros((self.n_x, self.n_y, self.n_phi, self.n_modes))
 
-        self.kernel[:, :, :] = track_img[:, :, None] * np.ones((self.n_x, self.n_y, self.n_phi))
+        self.kernel[:, :, :, :] = track_img[:, :, None, None] * np.ones((self.n_x, self.n_y, self.n_phi, self.n_modes))
 
-        self.dynamics = build_discrim_dynamics(self.phis, self.qs, self.velocity, self.t_step, self.sim_conf)
+        self.dynamics = build_discrim_dynamics(self.phis, self.m, self.t_step, self.sim_conf)
 
     def calculate_kernel(self, n_loops=20):
         for z in range(n_loops):
@@ -27,13 +88,12 @@ class DiscrimGenerator(BaseKernel):
                 print("Kernel has not changed: convergence has been reached")
                 break
             self.previous_kernel = np.copy(self.kernel)
-            self.kernel = discrim_loop(self.kernel, self.n_modes, self.dynamics)
-            # self.view_build(False)
+            self.kernel = viability_loop(self.kernel, self.dynamics)
+            self.view_speed_build(False)
             # self.view_kernel(0, False, z)
 
         return self.get_filled_kernel()
-        
-
+     
     def view_kernel(self, phi, show=True, n=0):
         phi_ind = np.argmin(np.abs(self.phis - phi))
         plt.figure(1)
@@ -98,6 +158,37 @@ class DiscrimGenerator(BaseKernel):
         if show:
             plt.show()
 
+    def view_speed_build(self, show=True):
+        self.axs[0, 0].cla()
+        self.axs[1, 0].cla()
+        self.axs[0, 1].cla()
+        self.axs[1, 1].cla()
+
+        phi_ind = int(len(self.phis)/2)
+        # phi_ind = 0
+        # quarter_phi = int(len(self.phis)/4)
+        # phi_ind = 
+
+        self.axs[0, 0].imshow(self.kernel[:, :, phi_ind, 4].T + self.o_map.T, origin='lower')
+        self.axs[0, 0].set_title(f"Kernel speed: {2}")
+        # axs[0, 0].clear()
+        self.axs[1, 0].imshow(self.kernel[:, :, phi_ind, 11].T + self.o_map.T, origin='lower')
+        self.axs[1, 0].set_title(f"Kernel speed: {4}")
+        self.axs[0, 1].imshow(self.kernel[:, :, phi_ind, 15].T + self.o_map.T, origin='lower')
+        self.axs[0, 1].set_title(f"Kernel speed: {6}")
+
+        self.axs[1, 1].imshow(self.kernel[:, :, phi_ind, 18].T + self.o_map.T, origin='lower')
+        self.axs[1, 1].set_title(f"Kernel phi: {2}")
+
+        # plt.title(f"Building Kernel")
+
+        plt.pause(0.0001)
+        plt.pause(1)
+
+        if show:
+            plt.show()
+    
+
     def make_picture(self, show=True):
         self.axs[0, 0].cla()
         self.axs[1, 0].cla()
@@ -130,7 +221,7 @@ class DiscrimGenerator(BaseKernel):
 
 
 # @njit(cache=True)
-def build_discrim_dynamics(phis, qs, velocity, time, conf):
+def build_discrim_dynamics(phis, m, time, conf):
     resolution = conf.n_dx
     phi_range = conf.phi_range
     block_size = 1 / (resolution)
@@ -138,13 +229,14 @@ def build_discrim_dynamics(phis, qs, velocity, time, conf):
     phi_size = phi_range / (conf.n_phi -1)
     ph = conf.discrim_phi * phi_size
 
-    dynamics = np.zeros((len(phis), len(qs), 8, 3), dtype=np.int)
+    dynamics = np.zeros((len(phis), len(m), len(m), 8, 4), dtype=np.int)
     for i, p in enumerate(phis):
-        for j, m in enumerate(qs):
-                state = np.array([0, 0, p, velocity, 0])
-                action = np.array([m, velocity])
+        for j, state_mode in enumerate(m.qs): # searches through old q's
+            state = np.array([0, 0, p, state_mode[1], state_mode[0]])
+            for k, action in enumerate(m.qs): # searches through actions
                 new_state = update_complex_state(state, action, time)
-                dx, dy, phi = new_state[0], new_state[1], new_state[2]
+                dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
+                new_q = m.get_mode_id(vel, steer)
 
                 if phi > np.pi:
                     phi = phi - 2*np.pi
@@ -152,14 +244,15 @@ def build_discrim_dynamics(phis, qs, velocity, time, conf):
                     phi = phi + 2*np.pi
 
                 new_k_min = int(round((phi - ph + phi_range/2) / phi_range * (len(phis)-1)))
-                dynamics[i, j, 0:4, 2] = min(max(0, new_k_min), len(phis)-1)
+                dynamics[i, j, k, 0:4, 2] = min(max(0, new_k_min), len(phis)-1)
                 
                 new_k_max = int(round((phi + ph + phi_range/2) / phi_range * (len(phis)-1)))
-                dynamics[i, j, 4:8, 2] = min(max(0, new_k_max), len(phis)-1)
+                dynamics[i, j, k, 4:8, 2] = min(max(0, new_k_max), len(phis)-1)
 
                 temp_dynamics = generate_temp_dynamics(dx, dy, h, resolution)
                 
-                dynamics[i, j, :, 0:2] = np.copy(temp_dynamics)
+                dynamics[i, j, k, :, 0:2] = np.copy(temp_dynamics)
+                dynamics[i, j, k, :, 3] = int(new_q) # no q discretisation error
 
                 # if t == 4:
                 #     print(f"State: {state}")
@@ -203,16 +296,30 @@ def discrim_loop(kernel, n_modes, dynamics):
     return kernel
 
 @njit(cache=True)
-def check_kernel_state(i, j, k, n_modes, dynamics, previous_kernel):
-    l_xs, l_ys, l_phis, = previous_kernel.shape
+def viability_loop(kernel, dynamics):
+    previous_kernel = np.copy(kernel)
+    l_xs, l_ys, l_phis, l_qs = kernel.shape
+    for i in range(l_xs):
+        for j in range(l_ys):
+            for k in range(l_phis):
+                for q in range(l_qs):
+                    if kernel[i, j, k, q] == 1:
+                        continue 
+                    kernel[i, j, k, q] = check_viable_state(i, j, k, q, dynamics, previous_kernel)
+
+    return kernel
+
+@njit(cache=True)
+def check_viable_state(i, j, k, q, dynamics, previous_kernel):
+    l_xs, l_ys, l_phis, n_modes = previous_kernel.shape
     for l in range(n_modes):
         safe = True
-        for n in range(dynamics.shape[2]):
-            di, dj, new_k = dynamics[k, l, n, :]
+        for n in range(dynamics.shape[3]): # cycle through 8 block states
+            di, dj, new_k, new_q = dynamics[k, q, l, n, :]
             new_i = min(max(0, i + di), l_xs-1)  
             new_j = min(max(0, j + dj), l_ys-1)
 
-            if previous_kernel[new_i, new_j, new_k]:
+            if previous_kernel[new_i, new_j, new_k, new_q]:
                 # if you hit a constraint, break
                 safe = False # breached a limit.
                 break
