@@ -52,7 +52,8 @@ def kernel_tester(conf):
 
     m = Modes(conf)
 
-    # np.random.seed(10)
+    np.random.seed(10)
+
     # states = np.random.random((n_test, 5))
     # states[:, 0] = states[:, 0]  * conf.forest_width * 0.8 + conf.forest_width * 0.1
     # states[:, 1] = states[:, 1] *  conf.forest_width * 0.8
