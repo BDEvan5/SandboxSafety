@@ -8,19 +8,20 @@ l_r: 0.171
 l_f: 0.158
 force_f: 0.9
 
-max_v: 7
+max_v: 6
+min_v: 2 
 max_a: 8.5
 max_steer: 0.4
 max_d_dot: 3.2
 
 time_step: 0.1
-viab_time: 0.1
+# viab_time: 0.08
 update_steps: 1
 max_steps: 5000
 
 # map info
 map_name: "forest2"
-n_dx: 80
+n_dx: 40
 forest_length: 25
 forest_width: 2
 start_pose: [1, 1, 0]
@@ -31,12 +32,15 @@ n_obs: 4
 obs_size: 0.5
 
 kernel_path: "Data/Kernels/"
-kernel_mode: "disc"
+# kernel_mode: "disc"
 # kernel_mode: "viab"
+kernel_mode: "viab"
 obs_img_size: 3 # size in meters 
 side_img_size: [2, 1]
 n_phi: 41
-n_modes: 5
+# n_modes: 5
+nq_steer: 9
+nq_velocity: 5
 phi_range: 3.141
 dynamics_pts: 5
 discrim_block: 1 

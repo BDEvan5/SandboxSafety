@@ -80,14 +80,16 @@ class Supervisor:
         self.plan_act = self.plan
         self.name = planner.name
 
+        self.m = Modes(conf)
 
     def plan(self, obs):
         init_action = self.planner.plan_act(obs)
         state = np.array(obs['state'])
 
-        safe, next_state = check_init_action(state, init_action, self.kernel, self.time_step)
+        init_mode_action = self.modify_action2mode(init_action)
+        safe, next_state = self.check_init_action(state, init_mode_action)
         if safe:
-            self.safe_history.add_locations(init_action[0], init_action[0])
+            self.safe_history.add_locations(init_mode_action[0], init_mode_action[0])
             return init_action
 
         dw = self.generate_dw()
@@ -95,10 +97,11 @@ class Supervisor:
         if not valids.any():
             print('No Valid options')
             print(f"State: {obs['state']}")
-            # plt.show()
+            plt.show()
             return init_action
         
-        action = modify_action(valids, dw)
+        # action = modify_action(valids, dw)
+        action = self.m.modify_mode(valids)
         # print(f"Valids: {valids} -> new action: {action}")
         self.safe_history.add_locations(init_action[0], action[0])
 
@@ -106,16 +109,28 @@ class Supervisor:
         return action
 
     def generate_dw(self):
-        n_segments = 5
-        dw = np.ones((5, 2))
-        dw[:, 0] = np.linspace(-self.d_max, self.d_max, n_segments)
-        dw[:, 1] *= self.v
-        # dw = np.vstack((dw, dw, dw))
-        # dw[0:5, 1] *= 1
-        # dw[5:10, 1] *= 2
-        # dw[10:, 1] *= 3
-        return dw
+        return self.m.qs
 
+    def modify_action2mode(self, init_action):
+        id = self.m.get_mode_id(init_action[1], init_action[0])
+        return self.m.qs[id]
+
+    def check_init_action(self, state, init_action):
+        d, v = init_action
+        b = 0.523
+        g = 9.81
+        l_d = 0.329
+        if abs(d)> 0.06: 
+            #  only check the friction limit if it might be a problem
+            friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1
+            if friction_v < v:
+                print(f"Invalid action: check planner or expect bad resultsL {init_action} -> max_friction_v: {friction_v}")
+                return False, state
+
+        next_state = update_complex_state(state, init_action, self.time_step)
+        safe = self.kernel.check_state(next_state)
+        
+        return safe, next_state
 
 class LearningSupervisor(Supervisor):
     def __init__(self, planner, kernel, conf):
@@ -205,11 +220,11 @@ class LearningSupervisor(Supervisor):
 
 #TODO jit all of this.
 
-def check_init_action(state, u0, kernel, time_step=0.1):
-    next_state = update_complex_state(state, u0, time_step)
-    safe = kernel.check_state(next_state)
+# def check_init_action(state, u0, kernel, time_step=0.1):
+#     next_state = update_complex_state(state, u0, time_step)
+#     safe = kernel.check_state(next_state)
     
-    return safe, next_state
+#     return safe, next_state
 
 def simulate_and_classify(state, dw, kernel, time_step=0.1):
     valid_ds = np.ones(len(dw))
@@ -239,12 +254,121 @@ def modify_action(valid_window, dw):
         if valid_window[n_d]:
             return dw[n_d]
 
-    
+
+
+class Modes:
+    def __init__(self, sim_conf):
+        self.nq_steer = sim_conf.nq_steer
+        self.nq_velocity = sim_conf.nq_velocity
+        self.max_steer = sim_conf.max_steer
+        self.max_velocity = sim_conf.max_v
+        self.min_velocity = sim_conf.min_v
+
+        self.vs = np.linspace(self.min_velocity, self.max_velocity, self.nq_velocity)
+        self.ds = np.linspace(-self.max_steer, self.max_steer, self.nq_steer)
+
+        self.qs = None
+        self.n_modes = None
+        self.nv_modes = None
+        self.v_mode_list = None
+        self.nv_level_modes = None
+
+        self.init_modes()
+
+    def init_modes(self):
+        b = 0.523
+        g = 9.81
+        l_d = 0.329
+
+        mode_list = []
+        v_mode_list = []
+        nv_modes = [0]
+        for i, v in enumerate(self.vs):
+            v_mode_list.append([])
+            for s in self.ds:
+                if abs(s) < 0.06:
+                    mode_list.append([s, v])
+                    v_mode_list[i].append(s)
+                    continue
+
+                friction_v = np.sqrt(b*g*l_d/np.tan(abs(s))) *1.1 # nice for the maths, but a bit wrong for actual friction
+                if friction_v > v:
+                    mode_list.append([s, v])
+                    v_mode_list[i].append(s)
+
+            nv_modes.append(len(v_mode_list[i])+nv_modes[-1])
+
+        self.qs = np.array(mode_list) # modes1
+        self.n_modes = len(mode_list) # n modes
+        self.nv_modes = np.array(nv_modes) # number of v modes in each level
+        self.nv_level_modes = np.diff(self.nv_modes) # number of v modes in each level
+        self.v_mode_list = v_mode_list # list of steering angles sorted by velocity
+
+        # print(self.qs)
+        # print(v_mode_list)
+        # print(f"Number of modes: {self.n_modes}")
+        # print(f"Number of v modes: {nv_modes}")
+
+    def check_mode_lims(self, v, d):
+        b = 0.523
+        g = 9.81
+        l_d = 0.329
+        friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1
+        if friction_v > v:
+            return True
+        return False
+
+    def get_mode_id(self, v, d):
+        # assume that a valid input is given that is within the range.
+        v_ind = np.argmin(np.abs(self.vs - v))
+        d_ind = np.argmin(np.abs(self.v_mode_list[v_ind] - d))
+        
+        return_mode = self.nv_modes[v_ind] + d_ind
+        
+        return return_mode
+
+    def __len__(self): return self.n_modes
+
+    def modify_mode(self, valid_window):
+        """ 
+        modifies the action for obstacle avoidance only, it doesn't check the dynamic limits here.
+        """
+        # max_v_idx = 
+        #TODO: decrease the upper limit of the search according to the velocity
+        for vm in range(self.nq_velocity-1, 0, -1):
+            idx_search = int(self.nv_modes[vm] +(self.nv_level_modes[vm]-1)/2) # idx to start searching at.
+
+            if self.nv_level_modes[vm] == 1:
+                if valid_window[idx_search]:
+                    return self.qs[idx_search]
+                continue
+
+            # at this point there are at least 3 steer options
+            d_search_size = int((self.nv_level_modes[vm]-1)/2)
+            for dind in range(d_search_size+1): # for d_ss=1 it should search, 0 and 1.
+                p_d = int(idx_search+dind)
+                if valid_window[p_d]:
+                    return self.qs[p_d]
+                n_d = int(idx_search-dind)
+                if valid_window[n_d]:
+                    return self.qs[n_d]
+            
+
+        idx_search = int((len(self.qs)-1)/2)
+        d_size = len(valid_window)
+        for i in range(d_size):
+            p_d = int(min(d_size-1, idx_search+i))
+            if valid_window[p_d]:
+                return self.qs[p_d]
+            n_d = int(max(0, idx_search-i))
+            if valid_window[n_d]:
+                return self.qs[n_d]
 
 class BaseKernel:
     def __init__(self, sim_conf, plotting):
         self.resolution = sim_conf.n_dx
         self.plotting = plotting
+        self.m = Modes(sim_conf)
 
     def view_kernel(self, theta):
         phi_range = np.pi
@@ -257,21 +381,29 @@ class BaseKernel:
         # plt.show()
         plt.pause(0.0001)
 
-    def check_state(self, state=[0, 0, 0]):
-        i, j, k= self.get_indices(state)
+    def check_state(self, state=[0, 0, 0, 0, 0]):
+        # # check friction first_t
+        # b = 0.523
+        # g = 9.81
+        # l_d = 0.329
+        # friction_v = np.sqrt(b*g*l_d/np.tan(abs(state[4]))) *1.1
+        # if state[3] > friction_v:
+        #     return False
+
+        i, j, k, m = self.get_indices(state)
 
         # print(f"Expected Location: {state} -> Inds: {i}, {j}, {k} -> Value: {self.kernel[i, j, k]}")
         if self.plotting:
-            self.plot_kernel_point(i, j, k)
-        if self.kernel[i, j, k] != 0:
+            self.plot_kernel_point(i, j, k, m)
+        if self.kernel[i, j, k, m] != 0:
             return False # unsfae state
         return True # safe state
 
-    def plot_kernel_point(self, i, j, k):
+    def plot_kernel_point(self, i, j, k, m):
         plt.figure(5)
         plt.clf()
-        plt.title(f"Kernel inds: {i}, {j}, {k}")
-        img = self.kernel[:, :, k].T 
+        plt.title(f"Kernel inds: {i}, {j}, {k}, {m}: {self.m.qs[m]}")
+        img = self.kernel[:, :, k, m].T 
         plt.imshow(img, origin='lower')
         plt.plot(i, j, 'x', markersize=20, color='red')
         # plt.show()
@@ -281,6 +413,7 @@ class BaseKernel:
         filled = np.count_nonzero(self.kernel)
         total = self.kernel.size
         print(f"Filled: {filled} / {total} -> {filled/total}")
+
 
 class ForestKernel(BaseKernel):
     def __init__(self, sim_conf, plotting=False):
@@ -301,13 +434,14 @@ class ForestKernel(BaseKernel):
         y_ind = min(max(0, int(round((state[1])*self.resolution))), self.kernel.shape[1]-1)
         theta_ind = int(round((state[2] + phi_range/2) / phi_range * (self.kernel.shape[2]-1)))
         theta_ind = min(max(0, theta_ind), self.kernel.shape[2]-1)
+        mode = self.m.get_mode_id(state[3], state[4])
 
-        return x_ind, y_ind, theta_ind
+        return x_ind, y_ind, theta_ind, mode
 
 
 @njit(cache=True)
 def construct_forest_kernel(track_size, obs_locations, resolution, side_kernel, obs_kernel, obs_offset):
-    kernel = np.zeros((track_size[0], track_size[1], side_kernel.shape[2]))
+    kernel = np.zeros((track_size[0], track_size[1], side_kernel.shape[2], side_kernel.shape[3]))
     length = int(track_size[1] / resolution)
     for i in range(length):
         kernel[:, i*resolution:(i+1)*resolution] = side_kernel
