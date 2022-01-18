@@ -16,7 +16,7 @@ from PIL import Image
 
 
 class KernelGenerator:
-    def __init__(self, track_img, sim_conf):
+    def __init__(self, track_img, sim_conf, load_dyns=False):
         self.track_img = track_img
         self.sim_conf = sim_conf
         self.n_dx = int(sim_conf.n_dx)
@@ -44,12 +44,17 @@ class KernelGenerator:
         
         self.kernel[:, :, :, :] = self.track_img[:, :, None, None] * np.ones((self.n_x, self.n_y, self.n_phi, self.n_modes))
 
-        if sim_conf.kernel_mode == "viab":
-            self.dynamics = build_viability_dynamics(self.phis, self.m, self.t_step, self.sim_conf)
-        elif sim_conf.kernel_mode == 'disc':
-            self.dynamics = build_disc_dynamics(self.phis, self.m, self.t_step, self.sim_conf)
+        if load_dyns:
+            self.dynamics = np.load(f"{self.sim_conf.kernel_mode}_dyns.npy")
         else:
-            raise ValueError(f"Unknown kernel mode: {sim_conf.kernel_mode}")
+            if sim_conf.kernel_mode == "viab":
+                self.dynamics = build_viability_dynamics(self.phis, self.m, self.t_step, self.sim_conf)
+                np.save("viab_dyns.npy", self.dynamics)
+            elif sim_conf.kernel_mode == 'disc':
+                self.dynamics = build_disc_dynamics(self.phis, self.m, self.t_step, self.sim_conf)
+                np.save("disc_dyns.npy", self.dynamics)
+            else:
+                raise ValueError(f"Unknown kernel mode: {sim_conf.kernel_mode}")
 
     def save_kernel(self, name):
         np.save(f"{self.sim_conf.kernel_path}{name}.npy", self.kernel)
@@ -79,7 +84,7 @@ class KernelGenerator:
         half_phi = int(len(self.phis)/2)
         quarter_phi = int(len(self.phis)/4)
 
-        mode_ind = 9
+        mode_ind = 6
 
         self.axs[0, 0].imshow(self.kernel[:, :, 0, mode_ind].T + self.o_map.T, origin='lower')
         self.axs[0, 0].set_title(f"Kernel phi: {self.phis[0]}")
@@ -110,15 +115,17 @@ class KernelGenerator:
         # quarter_phi = int(len(self.phis)/4)
         # phi_ind = 
 
-        self.axs[0, 0].imshow(self.kernel[:, :, phi_ind, 2].T + self.o_map.T, origin='lower')
+        inds = np.array([2, 6, 0, 5], dtype=int)
+
+        self.axs[0, 0].imshow(self.kernel[:, :, phi_ind, inds[0]].T + self.o_map.T, origin='lower')
         self.axs[0, 0].set_title(f"Kernel speed: {2}")
         # axs[0, 0].clear()
-        self.axs[1, 0].imshow(self.kernel[:, :, phi_ind, 6].T + self.o_map.T, origin='lower')
+        self.axs[1, 0].imshow(self.kernel[:, :, phi_ind, inds[1]].T + self.o_map.T, origin='lower')
         self.axs[1, 0].set_title(f"Kernel speed: {3}")
-        self.axs[0, 1].imshow(self.kernel[:, :, phi_ind, 8].T + self.o_map.T, origin='lower')
+        self.axs[0, 1].imshow(self.kernel[:, :, phi_ind, inds[2]].T + self.o_map.T, origin='lower')
         self.axs[0, 1].set_title(f"Kernel speed: {4}")
 
-        self.axs[1, 1].imshow(self.kernel[:, :, phi_ind, 9].T + self.o_map.T, origin='lower')
+        self.axs[1, 1].imshow(self.kernel[:, :, phi_ind, inds[3]].T + self.o_map.T, origin='lower')
         self.axs[1, 1].set_title(f"Kernel speed: {5}")
 
         # plt.title(f"Building Kernel")
@@ -241,8 +248,8 @@ def build_disc_dynamics(phis, m, time, conf):
             for k, action in enumerate(m.qs): # searches through actions
                 new_state = update_complex_state(state, action, time)
                 dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
-                # new_q = m.get_safe_mode_id(vel, steer)
-                new_q = m.get_mode_id(vel, steer)
+                new_q = m.get_safe_mode_id(vel, steer)
+                # new_q = m.get_mode_id(vel, steer)
 
                 if new_q is None:
                     invalid_counter += 1
@@ -321,7 +328,8 @@ def generate_temp_dynamics(dx, dy, h, resolution):
         temp_dynamics[2 + i*4, 1] = int(round((dy +h )* resolution))
         temp_dynamics[3 + i*4, 0] = int(round((dx +h) * resolution))
         temp_dynamics[3 + i*4, 1] = int(round((dy -h) * resolution))
-
+    #TODO: this could just be 4 blocks. There is no phi discretisation going on here. Maybe
+    #! this isn't workign
     return temp_dynamics
 
 
@@ -330,6 +338,8 @@ def viability_loop(kernel, dynamics):
     previous_kernel = np.copy(kernel)
     l_xs, l_ys, l_phis, l_qs = kernel.shape
     for i in range(l_xs):
+        # if i == 150:
+            # print(f"i: {i}")
         for j in range(l_ys):
             for k in range(l_phis):
                 for q in range(l_qs):
@@ -346,12 +356,14 @@ def check_viable_state(i, j, k, q, dynamics, previous_kernel):
     for l in range(n_modes):
         safe = True
         di, dj, new_k, new_q = dynamics[k, q, l, 0, :]
-        if np.isnan(new_q):
-            continue # not a valid option. Don't even bother with safe = False
+        # if np.isnan(new_q):
+        #     safe = False
+        #     continue # not a valid option. Don't even bother with safe = False
+        if new_q == -9223372036854775808:
+            continue
+
         for n in range(dynamics.shape[3]): # cycle through 8 block states
             di, dj, new_k, new_q = dynamics[k, q, l, n, :]
-            # if np.isnan(new_q):
-                # invalid transition: not safe 
 
                 # return True # not safe.
             new_i = min(max(0, i + di), l_xs-1)  
@@ -382,7 +394,8 @@ def construct_obs_kernel(conf):
     img = np.zeros((img_size, img_size))
     img[obs_offset:obs_size+obs_offset, -obs_size:-1] = 1 
 
-    kernel = KernelGenerator(img, conf)
+    # kernel = KernelGenerator(img, conf, True)
+    kernel = KernelGenerator(img, conf, False)
 
     kernel.calculate_kernel()
     kernel.save_kernel(f"ObsKernel_{conf.kernel_mode}")
@@ -393,7 +406,7 @@ def construct_kernel_sides(conf): #TODO: combine to single fcn?
     img[0, :] = 1
     img[-1, :] = 1
 
-    kernel = KernelGenerator(img, conf)
+    kernel = KernelGenerator(img, conf, True)
 
     kernel.calculate_kernel()
     kernel.save_kernel(f"SideKernel_{conf.kernel_mode}")

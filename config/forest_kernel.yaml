@@ -8,7 +8,7 @@ l_r: 0.171
 l_f: 0.158
 force_f: 0.9
 
-max_v: 5
+max_v: 3
 min_v: 2 
 max_a: 8.5
 max_steer: 0.4
@@ -35,10 +35,10 @@ kernel_mode: "disc"
 # kernel_mode: "viab"
 obs_img_size: 4 # size in meters 
 side_img_size: [2, 1]
-n_phi: 41
+n_phi: 81
 # n_modes: 5
 nq_steer: 5
-nq_velocity: 4
+nq_velocity: 2
 phi_range: 3.141
 dynamics_pts: 5
 discrim_block: 1 

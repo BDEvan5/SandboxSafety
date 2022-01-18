@@ -94,11 +94,17 @@ class Supervisor:
             np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
             raise ValueError(f"Invalid state: {state}")
 
-        init_mode_action = self.modify_action2mode(init_action)
+        init_mode_action, id = self.modify_action2mode(init_action)
         safe, next_state = self.check_init_action(state, init_mode_action)
         if safe:
             self.safe_history.add_locations(init_mode_action[0], init_mode_action[0])
-            print(f"Expected init (a: {init_mode_action}) s': {next_state}")
+            safe_s = self.kernel.check_state(next_state)
+            print(f"Expected init (a: q{id} - {init_mode_action}) s': {next_state} -> safe: {safe_s}")
+
+            mod_next_state = self.kernel.get_kernel_state(next_state)
+            print(f"Expected kernel state: {mod_next_state}, safe to come")
+            safe_s_p = self.kernel.check_state(mod_next_state)
+            print(f"Expected kernel state: {mod_next_state}: {safe_s_p}")
             return init_mode_action
             # return init_action
 
@@ -108,7 +114,7 @@ class Supervisor:
             inds = self.kernel.get_indices(state)
             print(f"Kernel inds: {inds}")
             np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
-            
+
             near_state = self.kernel.get_kernel_state(state)
             print(f"Nearest state: {near_state}")
 
@@ -137,7 +143,7 @@ class Supervisor:
         # print(f"Valids: {valids} -> new action: {action}")
         self.safe_history.add_locations(init_action[0], action[0])
 
-        print(f"Expected (a: {action}) s': {next_states[m_idx]}")
+        print(f"Expected (a: q{m_idx}- {action}) s': {next_states[m_idx]}")
 
         return action
 
@@ -146,7 +152,7 @@ class Supervisor:
 
     def modify_action2mode(self, init_action):
         id = self.m.get_mode_id(init_action[1], init_action[0])
-        return self.m.qs[id]
+        return self.m.qs[id], id
 
     def check_init_action(self, state, init_action):
         d, v = init_action
@@ -280,18 +286,21 @@ def modify_mode(self: Modes, valid_window):
     for vm in range(self.nq_velocity-1, -1, -1):
         idx_search = int(self.nv_modes[vm] +(self.nv_level_modes[vm]-1)/2) # idx to start searching at.
 
+        if valid_window[idx_search]:
+            return self.qs[idx_search], idx_search
+
         if self.nv_level_modes[vm] == 1:
-            if valid_window[idx_search]:
-                return self.qs[idx_search], idx_search
+            # if there is only one option and it is invalid
             continue
 
         # at this point there are at least 3 steer options
         d_search_size = int((self.nv_level_modes[vm]-1)/2)
-        for dind in range(d_search_size+2): # for d_ss=1 it should search, 0 and 1.
+
+        for dind in range(d_search_size+1): # for d_ss=1 it should search, 0 and 1.
             p_d = int(idx_search+dind)
             if valid_window[p_d]:
                 return self.qs[p_d], p_d
-            n_d = int(idx_search-dind)
+            n_d = int(idx_search-dind-1)
             if valid_window[n_d]:
                 return self.qs[n_d], n_d
         
@@ -393,7 +402,19 @@ class ForestKernel(BaseKernel):
         state[4] = mode[0]
 
         if not self.check_state(state):
-            raise RuntimeError(f"New state is outside kernel: check function that called this method. OState: {ostate} -> New State: {state}")
+            phi_ind += 1
+            state[2] = phi_ind * np.pi / self.sim_conf.n_phi - np.pi/2
+
+            print(f"State has been adjust with phi up")
+            if not self.check_state(state):
+                phi_ind -= 2
+                state[2] = phi_ind * np.pi / self.sim_conf.n_phi - np.pi/2
+
+                print(f"State has been adjust with phi Down")
+                if not self.check_state(state):
+
+
+                    raise RuntimeError(f"New state is outside kernel: check function that called this method. OState: {ostate} -> New State: {state}")
 
         return state
 
