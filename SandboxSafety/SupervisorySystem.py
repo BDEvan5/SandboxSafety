@@ -65,7 +65,7 @@ class Supervisor:
         """
         
         self.d_max = conf.max_steer
-        self.v = 2
+        # self.v = 2
         self.kernel = kernel
         self.planner = planner
         self.safe_history = SafetyHistory()
@@ -86,24 +86,58 @@ class Supervisor:
         init_action = self.planner.plan_act(obs)
         state = np.array(obs['state'])
 
+        safe = self.kernel.check_state(state)
+
+        if not safe:
+            inds = self.kernel.get_indices(state)
+            print(f"Kernel inds: {inds}")
+            np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
+            raise ValueError(f"Invalid state: {state}")
+
         init_mode_action = self.modify_action2mode(init_action)
         safe, next_state = self.check_init_action(state, init_mode_action)
         if safe:
             self.safe_history.add_locations(init_mode_action[0], init_mode_action[0])
-            return init_action
+            print(f"Expected init (a: {init_mode_action}) s': {next_state}")
+            return init_mode_action
+            # return init_action
 
         dw = self.generate_dw()
-        valids = simulate_and_classify(state, dw, self.kernel, self.time_step)
+        valids, next_states = simulate_and_classify(state, dw, self.kernel, self.time_step)
         if not valids.any():
-            print('No Valid options')
-            print(f"State: {obs['state']}")
+            inds = self.kernel.get_indices(state)
+            print(f"Kernel inds: {inds}")
+            np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
+            
+            near_state = self.kernel.get_kernel_state(state)
+            print(f"Nearest state: {near_state}")
+
+            raise ValueError(f"Invalid state: {state}")
+
+
+            if not self.kernel.check_state(state):
+                print(f"Problem with state identified. Not safe in kernel")
+            else:
+                print(f"Safe state correctly identified")
+
+            valids, next_states = simulate_and_classify(state, dw, self.kernel, self.time_step)
+            if not valids.any():
+                raise ValueError(f"No valid options -- O state: {obs['state']} -> New State: {state}")
+            # else:
+                # raise ValueError(f"Found new valid options through fix. Well done. o state: {obs['state']} -> new state {state}")
+
+            print(f"Found new valid options through fix. Well done. o state: {obs['state']} -> new state {state}")
+            print(f"Valids: {valids}")
+            print(f"Problem alieviated")
+            # print(f"No Valid options: {obs['state']}")
             # plt.show()
-            return init_action
+            # return init_action
         
-        action = modify_mode(self.m, valids)
+        action, m_idx = modify_mode(self.m, valids)
         # print(f"Valids: {valids} -> new action: {action}")
         self.safe_history.add_locations(init_action[0], action[0])
 
+        print(f"Expected (a: {action}) s': {next_states[m_idx]}")
 
         return action
 
@@ -219,49 +253,62 @@ class LearningSupervisor(Supervisor):
 
 def simulate_and_classify(state, dw, kernel, time_step):
     valid_ds = np.ones(len(dw))
+    next_states = np.zeros((len(dw), 5))
     for i in range(len(dw)):
         next_state = update_complex_state(state, dw[i], time_step)
+        next_states[i] = next_state
         safe = kernel.check_state(next_state)
         valid_ds[i] = safe 
 
         # print(f"State: {state} + Action: {dw[i]} --> Expected: {next_state}  :: Safe: {safe}")
 
-    return valid_ds 
+    return valid_ds, next_states
 
 def modify_mode(self: Modes, valid_window):
     """ 
     modifies the action for obstacle avoidance only, it doesn't check the dynamic limits here.
+
+    Returns
+        Mode (v, delta)
+        Mode_idx
     """
     # max_v_idx = 
     #TODO: decrease the upper limit of the search according to the velocity
-    for vm in range(self.nq_velocity-1, 0, -1):
+
+    assert valid_window.any() == 1, "No valid actions:check modify_mode method"
+
+    for vm in range(self.nq_velocity-1, -1, -1):
         idx_search = int(self.nv_modes[vm] +(self.nv_level_modes[vm]-1)/2) # idx to start searching at.
 
         if self.nv_level_modes[vm] == 1:
             if valid_window[idx_search]:
-                return self.qs[idx_search]
+                return self.qs[idx_search], idx_search
             continue
 
         # at this point there are at least 3 steer options
         d_search_size = int((self.nv_level_modes[vm]-1)/2)
-        for dind in range(d_search_size+1): # for d_ss=1 it should search, 0 and 1.
+        for dind in range(d_search_size+2): # for d_ss=1 it should search, 0 and 1.
             p_d = int(idx_search+dind)
             if valid_window[p_d]:
-                return self.qs[p_d]
+                return self.qs[p_d], p_d
             n_d = int(idx_search-dind)
             if valid_window[n_d]:
-                return self.qs[n_d]
+                return self.qs[n_d], n_d
         
+    print(f"Idx_searh: {idx_search} -> vm: {vm} -> d_search_size: {d_search_size} -> dind: {dind}")
+    print(f"No action found, window: {valid_window} n:{n_d} - p:{p_d}")
+    raise ValueError("modify_mode: unable to find valid action")
+    # return self.qs[0], 0
 
-    idx_search = int((len(self.qs)-1)/2)
-    d_size = len(valid_window)
-    for i in range(d_size):
-        p_d = int(min(d_size-1, idx_search+i))
-        if valid_window[p_d]:
-            return self.qs[p_d]
-        n_d = int(max(0, idx_search-i))
-        if valid_window[n_d]:
-            return self.qs[n_d]
+    # idx_search = int((len(self.qs)-1)/2)
+    # d_size = len(valid_window)
+    # for i in range(d_size):
+    #     p_d = int(min(d_size-1, idx_search+i))
+    #     if valid_window[p_d]:
+    #         return self.qs[p_d]
+    #     n_d = int(max(0, idx_search-i))
+    #     if valid_window[n_d]:
+    #         return self.qs[n_d]
 
 
 class BaseKernel:
@@ -269,6 +316,7 @@ class BaseKernel:
         self.resolution = sim_conf.n_dx
         self.plotting = plotting
         self.m = Modes(sim_conf)
+        self.sim_conf = sim_conf
 
     def view_kernel(self, theta):
         phi_range = np.pi
@@ -327,6 +375,28 @@ class ForestKernel(BaseKernel):
 
     def construct_kernel(self, track_size, obs_locations):
         self.kernel = construct_forest_kernel(track_size, obs_locations, self.resolution, self.side_kernel, self.obs_kernel, self.obs_offset)
+
+    def get_kernel_state(self, ostate):
+        """ Returns the exact kernel state for an approximate state within the kernel
+        """
+        x = round(ostate[0] * self.resolution) / self.resolution
+        y = round(ostate[1] * self.resolution) / self.resolution
+
+        dx, dy, phi_ind, q = self.get_indices(ostate)
+        mode = self.m.qs[q]
+
+        state = np.zeros(5)
+        state[0] = x
+        state[1] = y
+        state[2] = phi_ind * np.pi / self.sim_conf.n_phi - np.pi/2
+        state[3] = mode[1]
+        state[4] = mode[0]
+
+        if not self.check_state(state):
+            raise RuntimeError(f"New state is outside kernel: check function that called this method. OState: {ostate} -> New State: {state}")
+
+        return state
+
 
     def get_indices(self, state):
         phi_range = np.pi

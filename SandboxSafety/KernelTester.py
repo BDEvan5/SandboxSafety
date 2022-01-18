@@ -47,38 +47,45 @@ def kernel_tester(conf):
     Write function to fire random points and then simulate a step and check that none of the random points end up inside the kernel.
     """
     kernel = TestKernel(conf)
-    n_test = 10000
+    n_test = 50000
     resolution = conf.n_dx
 
     m = Modes(conf)
 
     np.random.seed(10)
 
-    # states = np.random.random((n_test, 5))
-    # states[:, 0] = states[:, 0]  * conf.forest_width * 0.8 + conf.forest_width * 0.1
-    # states[:, 1] = states[:, 1] *  conf.forest_width * 0.8
-    # states[:, 2] = states[:, 2] * np.pi - np.pi/2 # angles
-    # states[:, 3] = states[:, 3] * 4 + 2
-    # states[:, 4] = states[:, 4] * 0# 0.8 - 0.4
+    states = np.random.random((n_test, 5))
+    states[:, 0] = states[:, 0]  * conf.obs_img_size * 0.8 + conf.obs_img_size * 0.1
+    states[:, 1] = states[:, 1] *  conf.obs_img_size 
+    states[:, 2] = states[:, 2] * np.pi - np.pi/2 # angles
+    modes = np.random.randint(0, len(m.qs), n_test)
+    states[:, 3] = states[:, 3] * 3 + 2
+    states[:, 4] = states[:, 4] * 0# 0.8 - 0.4
     # actions = np.random.random((n_test, 2))
     # actions[:, 0] = actions[:, 0] * 0.8 - 0.4
     # actions[:, 1] = actions[:, 1] * 5 + 2
 
     # states = 
-    inds = np.where(kernel.kernel == 0)
-    states = np.array(inds).T # for all allowed states
+    # inds = np.where(kernel.kernel == 0)
+    # states = np.array(inds).T # for all allowed states
 
     unsafes = 0
     for i in range(n_test):
-        state = np.zeros(5)
-        state[0:2] = states[i, 0:2] / resolution
-        state[2] = states[i, 2] / conf.n_phi * np.pi - np.pi/2
-        mode = m.qs[states[i, 3]] 
-        state[3] = mode[1]
-        state[4] = mode[0]
+        # state = np.zeros(5)
+        # state[0:2] = states[i, 0:2] / resolution
+        # state[2] = states[i, 2] / conf.n_phi * np.pi - np.pi/2
+        # state[0:3] = states[i, 0:3]
+        state = states[i, :]
+        # mode = m.qs[modes[i]] 
+        # state[3] = mode[1]
+        # state[4] = mode[0]
 
-        # if not kernel.check_state(states[i]):
-        #     continue # the initial state is not viable.
+        if not kernel.check_state(state):
+            
+            plt.figure(2)
+            plt.plot(state[0], state[1], 'x', markersize=20, color='green')
+            plt.pause(0.0001)
+            continue # the initial state is not viable.
 
         state_safe = False
         for action in m.qs:
@@ -89,13 +96,18 @@ def kernel_tester(conf):
                 state_safe = True
                 break
 
+        plt.figure(2)
+        plt.plot(state[0], state[1], 'x', markersize=20, color='red')
+        plt.pause(0.0001)
+
         if not state_safe:
             unsafes += 1
             print(f"UNSAFE ({i}) --> State: {state} ")
             # unsafes.append(i)
 
             # plt.imshow(kernel.kernel[:, :, :, ])
-            i, j, k, q = kernel.get_indices(next_state)
+            i, j, k, q = kernel.get_indices(state)
+            safe = kernel.check_state(state)
             kernel.plot_kernel_point(i, j, k, q)
 
             plt.figure(1)
@@ -107,7 +119,7 @@ def kernel_tester(conf):
                 print(f"Action: {action} -> Next State: {next_state}")
                 plt.plot(next_state[0], next_state[1], 'x', markersize=16, color='r')
 
-            # plt.show()
+    plt.show()
     
     print(f"Unsafes: {unsafes}")
 
@@ -122,10 +134,23 @@ def load_conf(fname):
 
     return conf
 
+def test_specific_inds():
+    inds = [68, 661, 20, 6]
+
+
+    kernel = TestKernel(load_conf('forest_kernel'))
+
+    kernel.kernel = np.load("temp_kernel_for_inds.npy")
+
+    kernel.plot_kernel_point(inds[0], inds[1], inds[2], inds[3])
+
+    plt.show()
+
 
 
 if __name__ == "__main__":
     conf = load_conf("forest_kernel")
 
-    kernel_tester(conf)
+    # kernel_tester(conf)
 
+    test_specific_inds()

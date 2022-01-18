@@ -58,6 +58,27 @@ class Modes:
         
         return return_mode
 
+    def check_state_modes(self, v, d):
+        b = 0.523
+        g = 9.81
+        l_d = 0.329
+        friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1 # nice for the maths, but a bit wrong for actual friction
+        if friction_v > v:
+            return True # this is allowed mode
+        return False # this is not allowed mode: the friction is too high
+
+    def get_safe_mode_id(self, v, d):
+        if not self.check_state_modes(v, d):
+            return None
+
+        # a valid input is now guaranteed
+        v_ind = np.argmin(np.abs(self.vs - v))
+        d_ind = np.argmin(np.abs(self.v_mode_list[v_ind] - d))
+        
+        return_mode = self.nv_modes[v_ind] + d_ind
+        
+        return return_mode
+
     def __len__(self): return self.n_modes
 
 

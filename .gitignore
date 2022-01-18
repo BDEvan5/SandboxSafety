@@ -12,3 +12,5 @@ SandboxSafety/NavUtils/__pycache__/
 SandboxSafety/Simulator/__pycache__/
 
 Data/
+
+temp_kernel_for_inds.npy

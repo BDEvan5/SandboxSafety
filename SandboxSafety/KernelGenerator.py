@@ -228,11 +228,12 @@ def build_disc_dynamics(phis, m, time, conf):
     resolution = conf.n_dx
     phi_range = conf.phi_range
     block_size = 1 / (resolution)
-    h = conf.discrim_block * block_size *0.5
+    h = conf.discrim_block * block_size 
     phi_size = phi_range / (conf.n_phi -1)
     ph = conf.discrim_phi * phi_size
 
     ns = 1
+    invalid_counter = 0
     dynamics = np.zeros((len(phis), len(m), len(m), 9, 4), dtype=np.int)
     for i, p in enumerate(phis):
         for j, state_mode in enumerate(m.qs): # searches through old q's
@@ -240,7 +241,15 @@ def build_disc_dynamics(phis, m, time, conf):
             for k, action in enumerate(m.qs): # searches through actions
                 new_state = update_complex_state(state, action, time)
                 dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
+                # new_q = m.get_safe_mode_id(vel, steer)
                 new_q = m.get_mode_id(vel, steer)
+
+                if new_q is None:
+                    invalid_counter += 1
+                    dynamics[i, j, k, :, :] = np.nan # denotes invalid transition
+                    print(f"Invalid dyns: phi_ind: {i}, s_mode:{j}, action_mode:{k}")
+                    continue
+
 
                 if phi > np.pi:
                     phi = phi - 2*np.pi
@@ -293,6 +302,8 @@ def build_disc_dynamics(phis, m, time, conf):
                 # dynamics[i, j, k, 8:, 0:2] = np.copy(temp_dynamics)
                 # dynamics[i, j, k, 8:, 3] = int(new_q) # no q discretisation error
 
+    print(f"Invalid counter: {invalid_counter}")
+    print(f"Dynamics Table has been built: {dynamics.shape}")
 
     return dynamics
 
@@ -334,8 +345,15 @@ def check_viable_state(i, j, k, q, dynamics, previous_kernel):
     l_xs, l_ys, l_phis, n_modes = previous_kernel.shape
     for l in range(n_modes):
         safe = True
+        di, dj, new_k, new_q = dynamics[k, q, l, 0, :]
+        if np.isnan(new_q):
+            continue # not a valid option. Don't even bother with safe = False
         for n in range(dynamics.shape[3]): # cycle through 8 block states
             di, dj, new_k, new_q = dynamics[k, q, l, n, :]
+            # if np.isnan(new_q):
+                # invalid transition: not safe 
+
+                # return True # not safe.
             new_i = min(max(0, i + di), l_xs-1)  
             new_j = min(max(0, j + dj), l_ys-1)
 

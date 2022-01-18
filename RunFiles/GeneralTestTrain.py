@@ -168,6 +168,7 @@ def test_kernel_vehicle(env, vehicle, show=False, laps=100, add_obs=False, wait=
         while not done:
             a = vehicle.plan(state)
             s_p, r, done, _ = env.step_plan(a)
+            print(f"Actual: {s_p['state']}")
             state = s_p
             # env.render(False)
         if show:
