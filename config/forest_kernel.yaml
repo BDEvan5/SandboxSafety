@@ -38,11 +38,11 @@ side_img_size: [2, 1]
 n_phi: 41
 # n_modes: 5
 nq_steer: 9
-nq_velocity: 5
+nq_velocity: 3
 phi_range: 3.141
 dynamics_pts: 5
-discrim_block: 2 
-discrim_phi: 2
+discrim_block: 1 
+discrim_phi: 1
 kernel_time_step: 0.1
 lookahead_time_step: 0.1
 

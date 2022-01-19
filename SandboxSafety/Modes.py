@@ -62,6 +62,8 @@ class Modes:
         b = 0.523
         g = 9.81
         l_d = 0.329
+        if d < 0.06:
+            return True # safe because steering is small
         friction_v = np.sqrt(b*g*l_d/np.tan(abs(d))) *1.1 # nice for the maths, but a bit wrong for actual friction
         if friction_v > v:
             return True # this is allowed mode
