@@ -41,8 +41,8 @@ nq_steer: 5
 nq_velocity: 2
 phi_range: 3.141
 dynamics_pts: 5
-discrim_block: 1 
-discrim_phi: 0.5
+discrim_block: 2 
+discrim_phi: 2
 kernel_time_step: 0.1
 lookahead_time_step: 0.1
 

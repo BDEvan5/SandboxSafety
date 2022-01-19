@@ -116,14 +116,25 @@ class Supervisor:
 
         valids, next_states = simulate_and_classify(state, self.m.qs, self.kernel, self.time_step)
         if not valids.any():
-            inds = self.kernel.get_indices(state)
-            print(f"Kernel inds: {inds}")
-            np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
-
             near_state = self.kernel.get_kernel_state(state)
-            print(f"Nearest state: {near_state}")
 
-            raise ValueError(f"No Valid options for state: {state}")
+            valids, next_states = simulate_and_classify(near_state, self.m.qs, self.kernel, self.time_step)
+            if not valids.any():
+
+                inds = self.kernel.get_indices(state)
+                print(f"Kernel inds: {inds}")
+                np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
+
+                near_state = self.kernel.get_kernel_state(state)
+                print(f"Nearest state: {near_state} -> safe: {self.kernel.check_state(near_state)}")
+                print(f"No Valid options for state: {state}")
+
+                self.kernel.plot_kernel_point(inds[0], inds[1], inds[2], inds[3])
+                plt.show()
+
+                raise ValueError(f"No Valid options for state: {state}")
+            else:
+                print(f"Problem averted through using a near state")
         
         action, m_idx = modify_mode(self.m, valids)
         # print(f"Valids: {valids} -> new action: {action}")

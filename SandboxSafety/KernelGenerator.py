@@ -289,25 +289,6 @@ def build_disc_dynamics(phis, m, time, conf):
                 dynamics[i, j, k, 8, 1] = int(round(dy * resolution))                  
                 dynamics[i, j, k, 8, 3] = int(new_q)   
 
-                # new_state = update_complex_state(state, action, time*3/4)
-                # dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
-                # new_q = m.get_mode_id(vel, steer)
-
-                # if phi > np.pi:
-                #     phi = phi - 2*np.pi
-                # elif phi < -np.pi:
-                #     phi = phi + 2*np.pi
-
-                # new_k_min = int(round((phi - ph + phi_range/2) / phi_range * (len(phis)-1)))
-                # dynamics[i, j, k, 8:8+4, 2] = min(max(0, new_k_min), len(phis)-1)
-                
-                # new_k_max = int(round((phi + ph + phi_range/2) / phi_range * (len(phis)-1)))
-                # dynamics[i, j, k, 12:16, 2] = min(max(0, new_k_max), len(phis)-1)
-
-                # temp_dynamics = generate_temp_dynamics(dx, dy, h, resolution)
-                
-                # dynamics[i, j, k, 8:, 0:2] = np.copy(temp_dynamics)
-                # dynamics[i, j, k, 8:, 3] = int(new_q) # no q discretisation error
 
     print(f"Invalid counter: {invalid_counter}")
     print(f"Dynamics Table has been built: {dynamics.shape}")
