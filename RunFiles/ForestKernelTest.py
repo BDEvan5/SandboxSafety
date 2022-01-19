@@ -42,8 +42,8 @@ def pp_test():
     safety_planner = Supervisor(planner, kernel, conf)
 
     # run_test_loop(env, safety_planner, True, 10)
-    test_kernel_vehicle(env, safety_planner, False, 100, add_obs=True, wait=False)
-    # test_kernel_vehicle(env, safety_planner, True, 100, add_obs=True, wait=False)
+    # test_kernel_vehicle(env, safety_planner, False, 100, add_obs=True, wait=False)
+    test_kernel_vehicle(env, safety_planner, True, 100, add_obs=True, wait=False)
 
 def test_kernels():
 

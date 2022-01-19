@@ -88,20 +88,22 @@ class Supervisor:
         init_action = self.planner.plan_act(obs)
         state = np.array(obs['state'])
 
-        safe = self.kernel.check_state(state)
-
-        if not safe:
+        if not self.kernel.check_state(state):
             inds = self.kernel.get_indices(state)
+            print(f"Orignal State: {state}")
             print(f"Kernel inds of UNSAFE state: {inds}")
             np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
-            raise ValueError(f"Invalid state: {state}")
+
+            kernel_state = self.kernel.get_kernel_state(state)
+            print(f"Kernel state: {kernel_state}")
+
+            raise ValueError(f"Current state is not safe")
 
         init_mode_action, id = self.modify_action2mode(init_action)
         safe, next_state = self.check_init_action(state, init_mode_action)
         if safe:
             self.safe_history.add_locations(init_mode_action[0], init_mode_action[0])
             if verbose:
-
                 safe_s = self.kernel.check_state(next_state)
                 print(f"Expected init (a: q{id} - {init_mode_action}) s': {next_state} -> safe: {safe_s}")
 
@@ -112,8 +114,7 @@ class Supervisor:
             return init_mode_action
             # return init_action
 
-        dw = self.generate_dw()
-        valids, next_states = simulate_and_classify(state, dw, self.kernel, self.time_step)
+        valids, next_states = simulate_and_classify(state, self.m.qs, self.kernel, self.time_step)
         if not valids.any():
             inds = self.kernel.get_indices(state)
             print(f"Kernel inds: {inds}")
@@ -122,26 +123,7 @@ class Supervisor:
             near_state = self.kernel.get_kernel_state(state)
             print(f"Nearest state: {near_state}")
 
-            raise ValueError(f"Invalid state: {state}")
-
-
-            if not self.kernel.check_state(state):
-                print(f"Problem with state identified. Not safe in kernel")
-            else:
-                print(f"Safe state correctly identified")
-
-            valids, next_states = simulate_and_classify(state, dw, self.kernel, self.time_step)
-            if not valids.any():
-                raise ValueError(f"No valid options -- O state: {obs['state']} -> New State: {state}")
-            # else:
-                # raise ValueError(f"Found new valid options through fix. Well done. o state: {obs['state']} -> new state {state}")
-
-            print(f"Found new valid options through fix. Well done. o state: {obs['state']} -> new state {state}")
-            print(f"Valids: {valids}")
-            print(f"Problem alieviated")
-            # print(f"No Valid options: {obs['state']}")
-            # plt.show()
-            # return init_action
+            raise ValueError(f"No Valid options for state: {state}")
         
         action, m_idx = modify_mode(self.m, valids)
         # print(f"Valids: {valids} -> new action: {action}")
@@ -153,9 +135,6 @@ class Supervisor:
             print(f"Expected (a: q{m_idx}- {action}) s': {next_states[m_idx]} -> s' kernel: {ex_kern_state} -> s' indices: {inds}")
 
         return action
-
-    def generate_dw(self):
-        return self.m.qs
 
     def modify_action2mode(self, init_action):
         id = self.m.get_mode_id(init_action[1], init_action[0])
