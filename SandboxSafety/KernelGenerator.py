@@ -241,6 +241,7 @@ def build_disc_dynamics(phis, m, time, conf):
 
     ns = 1
     invalid_counter = 0
+    valid_couter = 0
     dynamics = np.zeros((len(phis), len(m), len(m), 9, 4), dtype=np.int)
     for i, p in enumerate(phis):
         for j, state_mode in enumerate(m.qs): # searches through old q's
@@ -256,7 +257,7 @@ def build_disc_dynamics(phis, m, time, conf):
                     dynamics[i, j, k, :, :] = np.nan # denotes invalid transition
                     print(f"Invalid dyns: phi_ind: {i}, s_mode:{j}, action_mode:{k}")
                     continue
-
+                valid_couter += 1
 
                 if phi > np.pi:
                     phi = phi - 2*np.pi
@@ -290,7 +291,7 @@ def build_disc_dynamics(phis, m, time, conf):
                 dynamics[i, j, k, 8, 3] = int(new_q)   
 
 
-    print(f"Invalid counter: {invalid_counter}")
+    print(f"Invalid counter: {invalid_counter} vs valid counter: {valid_couter}")
     print(f"Dynamics Table has been built: {dynamics.shape}")
 
     return dynamics
