@@ -54,6 +54,8 @@ class SafetyHistory:
         self.planned_actions = []
         self.safe_actions = []
 
+verbose = False
+# verbose = True
 
 class Supervisor:
     def __init__(self, planner, kernel, conf):
@@ -90,7 +92,7 @@ class Supervisor:
 
         if not safe:
             inds = self.kernel.get_indices(state)
-            print(f"Kernel inds: {inds}")
+            print(f"Kernel inds of UNSAFE state: {inds}")
             np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
             raise ValueError(f"Invalid state: {state}")
 
@@ -98,13 +100,15 @@ class Supervisor:
         safe, next_state = self.check_init_action(state, init_mode_action)
         if safe:
             self.safe_history.add_locations(init_mode_action[0], init_mode_action[0])
-            safe_s = self.kernel.check_state(next_state)
-            print(f"Expected init (a: q{id} - {init_mode_action}) s': {next_state} -> safe: {safe_s}")
+            if verbose:
 
-            mod_next_state = self.kernel.get_kernel_state(next_state)
-            print(f"Expected kernel state: {mod_next_state}, safe to come")
-            safe_s_p = self.kernel.check_state(mod_next_state)
-            print(f"Expected kernel state: {mod_next_state}: {safe_s_p}")
+                safe_s = self.kernel.check_state(next_state)
+                print(f"Expected init (a: q{id} - {init_mode_action}) s': {next_state} -> safe: {safe_s}")
+
+                mod_next_state = self.kernel.get_kernel_state(next_state)
+                print(f"Expected kernel state: {mod_next_state}, safe to come")
+                safe_s_p = self.kernel.check_state(mod_next_state)
+                print(f"Expected kernel state: {mod_next_state}: {safe_s_p}")
             return init_mode_action
             # return init_action
 
@@ -142,8 +146,11 @@ class Supervisor:
         action, m_idx = modify_mode(self.m, valids)
         # print(f"Valids: {valids} -> new action: {action}")
         self.safe_history.add_locations(init_action[0], action[0])
-
-        print(f"Expected (a: q{m_idx}- {action}) s': {next_states[m_idx]}")
+        
+        if verbose:
+            ex_kern_state = self.kernel.get_kernel_state(next_states[m_idx])
+            inds = self.kernel.get_indices(next_states[m_idx])
+            print(f"Expected (a: q{m_idx}- {action}) s': {next_states[m_idx]} -> s' kernel: {ex_kern_state} -> s' indices: {inds}")
 
         return action
 
