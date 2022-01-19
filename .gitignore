@@ -14,3 +14,7 @@ SandboxSafety/Simulator/__pycache__/
 Data/
 
 temp_kernel_for_inds.npy
+
+disc_dyns.npy
+
+ErrorOpts.txt

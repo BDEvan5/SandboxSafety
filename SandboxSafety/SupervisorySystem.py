@@ -92,19 +92,21 @@ class Supervisor:
             inds = self.kernel.get_indices(state)
             print(f"Kernel inds: {inds}")
             np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
-            raise ValueError(f"Invalid state: {state}")
+            return [0, 2]
+
+            # raise ValueError(f"Invalid state: {state}")
 
         init_mode_action, id = self.modify_action2mode(init_action)
         safe, next_state = self.check_init_action(state, init_mode_action)
         if safe:
             self.safe_history.add_locations(init_mode_action[0], init_mode_action[0])
-            safe_s = self.kernel.check_state(next_state)
-            print(f"Expected init (a: q{id} - {init_mode_action}) s': {next_state} -> safe: {safe_s}")
+            # safe_s = self.kernel.check_state(next_state)
+            # print(f"Expected init (a: q{id} - {init_mode_action}) s': {next_state} -> safe: {safe_s}")
 
-            mod_next_state = self.kernel.get_kernel_state(next_state)
-            print(f"Expected kernel state: {mod_next_state}, safe to come")
-            safe_s_p = self.kernel.check_state(mod_next_state)
-            print(f"Expected kernel state: {mod_next_state}: {safe_s_p}")
+            # mod_next_state = self.kernel.get_kernel_state(next_state)
+            # print(f"Expected kernel state: {mod_next_state}, safe to come")
+            # safe_s_p = self.kernel.check_state(mod_next_state)
+            # print(f"Expected kernel state: {mod_next_state}: {safe_s_p}")
             return init_mode_action
             # return init_action
 
@@ -118,7 +120,9 @@ class Supervisor:
             near_state = self.kernel.get_kernel_state(state)
             print(f"Nearest state: {near_state}")
 
-            raise ValueError(f"Invalid state: {state}")
+            return [0, 2]
+
+            # raise ValueError(f"Invalid state: {state}")
 
 
             if not self.kernel.check_state(state):
@@ -143,7 +147,7 @@ class Supervisor:
         # print(f"Valids: {valids} -> new action: {action}")
         self.safe_history.add_locations(init_action[0], action[0])
 
-        print(f"Expected (a: q{m_idx}- {action}) s': {next_states[m_idx]}")
+        # print(f"Expected (a: q{m_idx}- {action}) s': {next_states[m_idx]}")
 
         return action
 
