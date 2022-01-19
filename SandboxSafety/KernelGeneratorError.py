@@ -263,7 +263,7 @@ def build_options(conf):
 
     file = open('ErrorOpts.txt', 'w')
 
-    block_state = np.array([b, b, p, v, s])
+    # block_state = np.array([b, b, p, v, s])
 
     opts = []
     for o1 in opt1:
@@ -321,11 +321,7 @@ def build_disc_dynamics(phis, m, time, conf):
                     dynamics[i, j, k, l, 0] = int(round(dx * resolution))                  
                     dynamics[i, j, k, l, 1] = int(round(dy * resolution))                  
                     dynamics[i, j, k, l, 3] = int(new_q)
-                
-                new_state = update_complex_state(state, action, time)
-                dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
-                new_q = m.get_safe_mode_id(vel, steer)
-                # new_q = m.get_mode_id(vel, steer)
+            
 
 
     print(f"Invalid counter: {invalid_counter} vs valid counter: {valid_couter}")
@@ -455,7 +451,7 @@ def load_conf(fname):
 
 def test_construction():
     conf = load_conf("forest_kernel")
-    # build_dynamics_table(conf)
+    build_dynamics_table(conf)
 
     construct_obs_kernel(conf)
     construct_kernel_sides(conf)

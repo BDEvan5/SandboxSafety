@@ -18,3 +18,5 @@ temp_kernel_for_inds.npy
 disc_dyns.npy
 
 ErrorOpts.txt
+
+viab_dyns.npy

@@ -57,6 +57,11 @@ class SafetyHistory:
 verbose = False
 # verbose = True
 
+def emergency_action(state):
+    print(f"Emergency action: {state}")
+    if state[4] < 0: return [-0.4, 2]
+    else: return [0.4, 2]
+
 class Supervisor:
     def __init__(self, planner, kernel, conf):
         """
@@ -89,15 +94,18 @@ class Supervisor:
         state = np.array(obs['state'])
 
         if not self.kernel.check_state(state):
-            inds = self.kernel.get_indices(state)
-            print(f"Orignal State: {state}")
-            print(f"Kernel inds of UNSAFE state: {inds}")
-            np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
+            # inds = self.kernel.get_indices(state)
+            # print(f"Orignal State: {state}")
+            # print(f"Kernel inds of UNSAFE state: {inds}")
+            # np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
 
-            kernel_state = self.kernel.get_kernel_state(state)
-            print(f"Kernel state: {kernel_state}")
+            # kernel_state = self.kernel.get_kernel_state(state)
+            # print(f"Kernel state: {kernel_state}")
 
-            raise ValueError(f"Current state is not safe")
+            print("current_state is not safe")
+            # raise ValueError(f"Current state is not safe")
+            return emergency_action(state)
+
 
         init_mode_action, id = self.modify_action2mode(init_action)
         safe, next_state = self.check_init_action(state, init_mode_action)
@@ -116,6 +124,8 @@ class Supervisor:
 
         valids, next_states = simulate_and_classify(state, self.m.qs, self.kernel, self.time_step)
         if not valids.any():
+            print(f"No valid actions")
+            return emergency_action(state)
             near_state = self.kernel.get_kernel_state(state)
 
             valids, next_states = simulate_and_classify(near_state, self.m.qs, self.kernel, self.time_step)
@@ -132,7 +142,8 @@ class Supervisor:
                 self.kernel.plot_kernel_point(inds[0], inds[1], inds[2], inds[3])
                 plt.show()
 
-                raise ValueError(f"No Valid options for state: {state}")
+                return emergency_action(state)
+                # raise ValueError(f"No Valid options for state: {state}")
             else:
                 print(f"Problem averted through using a near state")
         
