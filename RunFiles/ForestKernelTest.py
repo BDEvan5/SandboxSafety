@@ -4,6 +4,7 @@ from SandboxSafety.Simulator.ForestSim import ForestSim
 from SandboxSafety.KernelGenerator import construct_obs_kernel, construct_kernel_sides
 from SandboxSafety.NavAgents.SimplePlanners import RandomPlanner, PurePursuit 
 from SandboxSafety.SupervisorySystem import Supervisor, ForestKernel
+from SandboxSafety.DynamicsBuilder import build_dynamics_table
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -32,8 +33,10 @@ def rando_test():
 def pp_test():
     conf = load_conf("forest_kernel")
 
-    # construct_obs_kernel(conf)
-    # construct_kernel_sides(conf)
+    build_dynamics_table(conf)
+
+    construct_obs_kernel(conf)
+    construct_kernel_sides(conf)
 
     env = ForestSim(conf)
     planner = PurePursuit(conf)
@@ -42,8 +45,7 @@ def pp_test():
     safety_planner = Supervisor(planner, kernel, conf)
 
     # run_test_loop(env, safety_planner, True, 10)
-    test_kernel_vehicle(env, safety_planner, False, 500, add_obs=True, wait=False)
-    # test_kernel_vehicle(env, safety_planner, True, 100, add_obs=True, wait=False)
+    test_kernel_vehicle(env, safety_planner, False, 100, add_obs=True, wait=False)
 
 def test_kernels():
 

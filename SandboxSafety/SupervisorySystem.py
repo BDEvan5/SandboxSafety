@@ -99,13 +99,13 @@ class Supervisor:
             # print(f"Kernel inds of UNSAFE state: {inds}")
             # np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
 
-            # kernel_state = self.kernel.get_kernel_state(state)
-            # print(f"Kernel state: {kernel_state}")
+        if not safe:
+            inds = self.kernel.get_indices(state)
+            print(f"Kernel inds: {inds}")
+            np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
+            return [0, 2]
 
-            print("current_state is not safe")
-            # raise ValueError(f"Current state is not safe")
-            return emergency_action(state)
-
+            # raise ValueError(f"Invalid state: {state}")
 
         init_mode_action, id = self.modify_action2mode(init_action)
         safe, next_state = self.check_init_action(state, init_mode_action)
@@ -128,16 +128,15 @@ class Supervisor:
             return emergency_action(state)
             near_state = self.kernel.get_kernel_state(state)
 
-            valids, next_states = simulate_and_classify(near_state, self.m.qs, self.kernel, self.time_step)
-            if not valids.any():
+            return [0, 2]
 
-                inds = self.kernel.get_indices(state)
-                print(f"Kernel inds: {inds}")
-                np.save(f"temp_kernel_for_inds.npy", self.kernel.kernel)
+            # raise ValueError(f"Invalid state: {state}")
 
-                near_state = self.kernel.get_kernel_state(state)
-                print(f"Nearest state: {near_state} -> safe: {self.kernel.check_state(near_state)}")
-                print(f"No Valid options for state: {state}")
+
+            if not self.kernel.check_state(state):
+                print(f"Problem with state identified. Not safe in kernel")
+            else:
+                print(f"Safe state correctly identified")
 
                 self.kernel.plot_kernel_point(inds[0], inds[1], inds[2], inds[3])
                 plt.show()
@@ -379,6 +378,9 @@ class BaseKernel:
         total = self.kernel.size
         print(f"Filled: {filled} / {total} -> {filled/total}")
 
+    def plot_kernel_state(self, state):
+        inds = self.get_indices(state)
+        self.plot_kernel_point(inds[0], inds[1], inds[2], inds[3])
 
 class ForestKernel(BaseKernel):
     def __init__(self, sim_conf, plotting=False):
