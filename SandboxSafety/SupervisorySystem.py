@@ -375,6 +375,9 @@ class BaseKernel:
         total = self.kernel.size
         print(f"Filled: {filled} / {total} -> {filled/total}")
 
+    def plot_kernel_state(self, state):
+        inds = self.get_indices(state)
+        self.plot_kernel_point(inds[0], inds[1], inds[2], inds[3])
 
 class ForestKernel(BaseKernel):
     def __init__(self, sim_conf, plotting=False):

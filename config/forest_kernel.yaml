@@ -20,7 +20,7 @@ max_steps: 5000
 
 # map info
 map_name: "forest2"
-n_dx: 40
+n_dx: 10
 forest_length: 25
 forest_width: 2
 start_pose: [1, 1, 0]
@@ -28,7 +28,7 @@ end_y: 21
 obstacle_buffer: 3
 
 n_obs: 4
-obs_size: 0.5
+obs_size: 0.3
 
 kernel_path: "Data/Kernels/"
 dynamics_path: "Data/Dynamics/"
