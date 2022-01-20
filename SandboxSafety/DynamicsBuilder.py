@@ -33,13 +33,21 @@ def build_viability_dynamics(phis, m, time, conf):
     ns = 2
 
     dynamics = np.zeros((len(phis), len(m), len(m), ns, 4), dtype=np.int)
+    invalid_counter = 0
     for i, p in enumerate(phis):
         for j, state_mode in enumerate(m.qs): # searches through old q's
             state = np.array([0, 0, p, state_mode[1], state_mode[0]])
             for k, action in enumerate(m.qs): # searches through actions
                 new_state = update_complex_state(state, action, time/2)
                 dx, dy, phi, vel, steer = new_state[0], new_state[1], new_state[2], new_state[3], new_state[4]
-                new_q = m.get_mode_id(vel, steer)
+                new_q = m.get_safe_mode_id(vel, steer)
+
+                if new_q is None:
+                    invalid_counter += 1
+                    dynamics[i, j, k, :, :] = np.nan # denotes invalid transition
+                    print(f"Invalid dyns: phi_ind: {i}, s_mode:{j}, action_mode:{k}")
+                    continue
+    
 
                 while phi > np.pi:
                     phi = phi - 2*np.pi
@@ -68,6 +76,7 @@ def build_viability_dynamics(phis, m, time, conf):
                 dynamics[i, j, k, 1, 1] = int(round(dy * resolution))                  
                 dynamics[i, j, k, 1, 3] = int(new_q)                  
                 
+    print(f"Invalid transitions: {invalid_counter}")
 
     return dynamics
 
