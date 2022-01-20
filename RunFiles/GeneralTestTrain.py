@@ -181,7 +181,9 @@ def test_kernel_vehicle(env, vehicle, show=False, laps=100, add_obs=False, wait=
         if r == -1:
             crashes += 1
             print(f"({i}) Crashed -> time: {env.steps} ")
-            plt.show()
+            env.render(wait=wait, name=vehicle.planner.name)
+            plt.savefig(f"{env.sim_conf.traj_path}{vehicle.planner.name}_crash_{i}.png")
+            # plt.show()
         else:
             completes += 1
             print(f"({i}) Complete -> time: {env.steps}")
