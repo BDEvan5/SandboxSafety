@@ -82,7 +82,8 @@ class PurePursuit:
     def plan_act(self, obs):
         state = obs['state']
         pose_theta = state[2]
-        lookahead = np.array([1, state[1]+self.lookahead_distance]) #pt 1 m in the future on centerline
+        x_follow = 2 # @x_follow is the param to change
+        lookahead = np.array([x_follow, state[1]+self.lookahead_distance]) #pt 1 m in the future on centerline
         waypoint_y = np.dot(np.array([np.cos(pose_theta), np.sin(-pose_theta)]), lookahead[0:2]-state[0:2])
         if np.abs(waypoint_y) < 1e-6:
             return np.array([0, self.v])

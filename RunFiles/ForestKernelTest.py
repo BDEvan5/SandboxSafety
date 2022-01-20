@@ -4,6 +4,7 @@ from SandboxSafety.Simulator.ForestSim import ForestSim
 from SandboxSafety.KernelGenerator import construct_obs_kernel, construct_kernel_sides
 from SandboxSafety.NavAgents.SimplePlanners import RandomPlanner, PurePursuit 
 from SandboxSafety.SupervisorySystem import Supervisor, ForestKernel
+from SandboxSafety.WhaleSafety import LobsterSupervisor, ForestSquidKernel
 from SandboxSafety.DynamicsBuilder import build_dynamics_table
 
 import numpy as np
@@ -33,10 +34,10 @@ def rando_test():
 def pp_test():
     conf = load_conf("forest_kernel")
 
-    build_dynamics_table(conf)
+    # build_dynamics_table(conf)
 
-    construct_obs_kernel(conf)
-    construct_kernel_sides(conf)
+    # construct_obs_kernel(conf)
+    # construct_kernel_sides(conf)
 
     env = ForestSim(conf)
     planner = PurePursuit(conf)
@@ -46,6 +47,23 @@ def pp_test():
 
     # run_test_loop(env, safety_planner, True, 10)
     test_kernel_vehicle(env, safety_planner, False, 100, add_obs=True, wait=False)
+
+def pp_test_beach():
+    conf = load_conf("forest_kernel")
+
+    # build_dynamics_table(conf)
+
+    # construct_obs_kernel(conf)
+    # construct_kernel_sides(conf)
+
+    env = ForestSim(conf)
+    planner = PurePursuit(conf)
+    # kernel = ForestKernel(conf, True)
+    kernel = ForestSquidKernel(conf, False)
+    safety_planner = LobsterSupervisor(planner, kernel, conf)
+
+    test_kernel_vehicle(env, safety_planner, False, 100, add_obs=True, wait=False)
+    # test_kernel_vehicle(env, safety_planner, True, 100, add_obs=True, wait=False)
 
 def test_kernels():
 
@@ -76,7 +94,8 @@ def test_construction():
 
 if __name__ == "__main__":
     # rando_test()
-    pp_test()
+    # pp_test()
+    pp_test_beach()
 
     # test_kernels()
 

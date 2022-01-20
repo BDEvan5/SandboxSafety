@@ -3,20 +3,21 @@ from SandboxSafety.Utils import load_conf
 from numba import njit
 
 
-def convert_kernel(sim_conf):
+def convert_kernel(sim_conf, opt):
     dynamics = np.load(f"{sim_conf.dynamics_path}{sim_conf.kernel_mode}_dyns.npy")
-    kernel = np.load(f"{sim_conf.kernel_path}ObsKernel_{sim_conf.kernel_mode}.npy")
+    kernel = np.load(f"{sim_conf.kernel_path}{opt}Kernel_{sim_conf.kernel_mode}.npy")
 
 
     turtle, fish_tab = seaside_loop(kernel, dynamics)
     
-    np.save(f"{sim_conf.kernel_path}ObsTurtle_{sim_conf.kernel_mode}.npy", turtle)
-    np.save(f"{sim_conf.kernel_path}ObsFishTab_{sim_conf.kernel_mode}.npy", fish_tab)
+    np.save(f"{sim_conf.kernel_path}{opt}Turtle_{sim_conf.kernel_mode}.npy", turtle)
+    np.save(f"{sim_conf.kernel_path}{opt}FishTab_{sim_conf.kernel_mode}.npy", fish_tab)
 
-    print(f"Process finished: fish tab length = {len(fish_tab)} out of {kernel.size}")
+    print(f"Process finished {opt}: fish tab length = {len(fish_tab)} out of {kernel.size}")
 
 
-@njit(cache=True)
+
+@njit(cache=True, parallel=True)
 def seaside_loop(kernel, dynamics):
     l_xs, l_ys, l_phis, l_qs = kernel.shape
     turtle = np.zeros_like(kernel)
@@ -41,6 +42,7 @@ def seaside_loop(kernel, dynamics):
                         turtle[i, j, k, q] = -1 # all modes allowed
                         continue
                     
+                    turtle[i, j, k, q] = int(fish_idx)
                     fish_tab[fish_idx] = valid_window
                     fish_idx += 1
 
@@ -83,4 +85,5 @@ def calculate_valid_window(kernel, dynamics, i, j, k, q):
 
 if __name__ == "__main__":
     sim_conf = load_conf("forest_kernel")
-    convert_kernel(sim_conf)
+    convert_kernel(sim_conf, "Obs")
+    convert_kernel(sim_conf, "Side")

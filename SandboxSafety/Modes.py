@@ -56,7 +56,7 @@ class Modes:
         
         return_mode = self.nv_modes[v_ind] + d_ind
         
-        return return_mode
+        return int(return_mode)
 
     def check_state_modes(self, v, d):
         b = 0.523
