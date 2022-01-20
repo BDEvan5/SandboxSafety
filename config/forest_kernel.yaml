@@ -31,6 +31,7 @@ n_obs: 4
 obs_size: 0.5
 
 kernel_path: "Data/Kernels/"
+dynamics_path: "Data/Dynamics/"
 kernel_mode: "disc"
 # kernel_mode: "viab"
 obs_img_size: 4 # size in meters 
