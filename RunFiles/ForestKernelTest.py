@@ -94,8 +94,8 @@ def test_construction():
 
 if __name__ == "__main__":
     # rando_test()
-    # pp_test()
-    pp_test_beach()
+    pp_test()
+    # pp_test_beach()
 
     # test_kernels()
 
